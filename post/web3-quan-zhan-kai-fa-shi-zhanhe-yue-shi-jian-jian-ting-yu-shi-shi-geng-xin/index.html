@@ -36,7 +36,7 @@
 <meta name="description" content="在上一篇文章中，我们搭建了一个完整的钱包集成流程，并且实现了对 ValueStore 合约的读写操作。但是，仅仅通过手动点击按钮去查询链上状态，并不够“实时”。真正的 DApp 通常需要主动监听链上事件，第一时间更新 UI，同时后端也需要索引这些事件来构建历史记录和数据分析。 今天这篇教程，我们就以 ValueStore 合约的 ValueChanged 事件为例，一步步&amp;hellip;">
 <meta name="keywords" content="xx0-0xx,三七不是中药,Stariverse">
 <link rel="canonical" href="https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Web3 全栈开发实战：合约事件监听与实时更新","url":"https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/","description":"在上一篇文章中，我们搭建了一个完整的钱包集成流程，并且实现了对 ValueStore 合约的读写操作。但是，仅仅通过手动点击按钮去查询链上状态，并不够“实时”。真正的 DApp 通常需要主动监听链上事件，第一时间更新 UI，同时后端也需要索引这些事件来构建历史记录和数据分析。 今天这篇教程，我们就以 ValueStore 合约的 ValueChanged 事件为例，一步步\u0026hellip;","datePublished":"2026-05-16T13:44:50+08:00","dateModified":"2026-05-16T13:44:50+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Web3 全栈开发实战：合约事件监听与实时更新","url":"https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/","description":"在上一篇文章中，我们搭建了一个完整的钱包集成流程，并且实现了对 ValueStore 合约的读写操作。但是，仅仅通过手动点击按钮去查询链上状态，并不够“实时”。真正的 DApp 通常需要主动监听链上事件，第一时间更新 UI，同时后端也需要索引这些事件来构建历史记录和数据分析。 今天这篇教程，我们就以 ValueStore 合约的 ValueChanged 事件为例，一步步\u0026hellip;","datePublished":"2026-01-15T06:08:02+08:00","dateModified":"2026-05-16T14:47:23+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://www.xx0-0xx.space","name":"Stariverse","position":1},{"@type":"ListItem","item":"https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/","name":"Web3 全栈开发实战：合约事件监听与实时更新","position":2}]}</script>
 <meta property="og:title" content="Web3 全栈开发实战：合约事件监听与实时更新">
 <meta property="og:description" content="在上一篇文章中，我们搭建了一个完整的钱包集成流程，并且实现了对 ValueStore 合约的读写操作。但是，仅仅通过手动点击按钮去查询链上状态，并不够“实时”。真正的 DApp 通常需要主动监听链上事件，第一时间更新 UI，同时后端也需要索引这些事件来构建历史记录和数据分析。 今天这篇教程，我们就以 ValueStore 合约的 ValueChanged 事件为例，一步步&amp;hellip;">
@@ -176,7 +176,7 @@
     <h1 class="article-title">Web3 全栈开发实战：合约事件监听与实时更新</h1>
     <div class="article-meta">
       
-      <span class="article-meta__item">2026-05-16</span>
+      <span class="article-meta__item">2026-01-15</span>
       
       <span class="article-meta__sep">·</span>
       <span class="article-meta__item">12 分钟阅读</span>

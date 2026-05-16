@@ -6,13 +6,13 @@
     <description>一个专注 Web3 全栈开发的技术博客，分享实战教程、前沿工具与去中心化应用搭建经验。                      </description>
     <language>zh-cn</language>
     <generator>Gridea Pro</generator>
-    <lastBuildDate>Sat, 16 May 2026 14:03:36 +0800</lastBuildDate>
+    <lastBuildDate>Sat, 16 May 2026 14:49:27 +0800</lastBuildDate>
     <atom:link href="https://www.xx0-0xx.space/feed.xml" rel="self" type="application/rss+xml"></atom:link>
     <item>
       <title>Web3 全栈开发实战：生产级优化与部署</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhansheng-chan-ji-you-hua-yu-bu-shu/</link>
       <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhansheng-chan-ji-you-hua-yu-bu-shu/</guid>
-      <pubDate>Sat, 16 May 2026 14:03:36 +0800</pubDate>
+      <pubDate>Wed, 29 Apr 2026 23:03:04 +0800</pubDate>
       <description><![CDATA[<p>从第一篇的钱包连接，到第五篇的多链与智能钱包，我们一步步搭建了一个功能完备的全栈 DApp。但“能跑”和“能服务成千上万用户”之间还隔着关键的一步：生产化。</p>
 <p>今天我们将聚焦：</p>
 <ul>
@@ -343,7 +343,7 @@ Sentry.init({
       <title>Web3 全栈开发实战：多链支持与智能钱包集成</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanduo-lian-zhi-chi-yu-zhi-neng-qian-bao-ji-cheng/</link>
       <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanduo-lian-zhi-chi-yu-zhi-neng-qian-bao-ji-cheng/</guid>
-      <pubDate>Sat, 16 May 2026 13:59:54 +0800</pubDate>
+      <pubDate>Thu, 02 Apr 2026 21:23:44 +0800</pubDate>
       <description><![CDATA[<p>前面四篇文章，我们的全栈应用始终锚定在 Sepolia 这一条测试网上。但在现实世界中，一个成熟的 DApp 需要同时服务 Ethereum、Polygon、Arbitrum、Optimism 甚至更多链的用户。与此同时，越来越多的项目和个人使用智能合约钱包（如 Safe 多签钱包）来管理资产，它和普通 EOA 钱包的交互方式略有不同。</p>
 <p>今天这篇文章，你将完成：</p>
 <ul>
@@ -676,7 +676,7 @@ export const chainClients = {
       <title>Web3 全栈开发实战：Uniswap V2 流动性管理</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanuniswap-v2-liu-dong-xing-guan-li/</link>
       <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanuniswap-v2-liu-dong-xing-guan-li/</guid>
-      <pubDate>Sat, 16 May 2026 13:56:20 +0800</pubDate>
+      <pubDate>Sat, 07 Mar 2026 07:03:33 +0800</pubDate>
       <description><![CDATA[<p>截至目前，我们的全栈应用已经可以连接钱包、发送交易、监听事件、操作 ERC-20 代币。但这本质上还只是“转账工具”。要进入真正的 DeFi 世界，我们必须理解并实现<strong>去中心化交易所（DEX）的核心逻辑：流动性池与兑换</strong>。</p>
 <p>Uniswap V2 是最经典的 AMM（自动做市商）协议，它的核心概念简洁而强大：任何人都可以存入两种代币组成交易对，并据此赚取手续费；任何人都可以调用 <code>swap</code> 进行兑换，价格由恒定乘积公式 <code>x * y = k</code> 决定。</p>
 <p>今天这篇文章，你将从零完成：</p>
@@ -1058,7 +1058,7 @@ export function startSwapListener(pairAddress: string) {
       <title>Web3 全栈开发实战：ERC-20 代币集成与转账</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/</link>
       <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/</guid>
-      <pubDate>Sat, 16 May 2026 13:48:17 +0800</pubDate>
+      <pubDate>Mon, 23 Feb 2026 08:55:06 +0800</pubDate>
       <description><![CDATA[<p>在之前的文章中，我们完成了钱包连接、合约交互以及事件监听的完整闭环。今天，系列第三篇将聚焦 <strong>ERC-20 代币</strong> —— 这是 DeFi 世界里最基础的资产标准。我们将从部署自己的测试代币开始，到前端查询余额、转账、授权，再到后端索引所有转账记录，一气呵成。</p>
 <p>学完这篇文章，你将掌握：</p>
 <ul>
@@ -1391,7 +1391,7 @@ export default function TransferHistory() {
       <title>Web3 全栈开发实战：合约事件监听与实时更新</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/</link>
       <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/</guid>
-      <pubDate>Sat, 16 May 2026 13:44:50 +0800</pubDate>
+      <pubDate>Thu, 15 Jan 2026 06:08:02 +0800</pubDate>
       <description><![CDATA[<p>在上一篇文章中，我们搭建了一个完整的钱包集成流程，并且实现了对 <code>ValueStore</code> 合约的读写操作。但是，仅仅通过手动点击按钮去查询链上状态，并不够“实时”。真正的 DApp 通常需要<strong>主动监听链上事件</strong>，第一时间更新 UI，同时后端也需要索引这些事件来构建历史记录和数据分析。</p>
 <p>今天这篇教程，我们就以 <code>ValueStore</code> 合约的 <code>ValueChanged</code> 事件为例，一步步完成：</p>
 <ul>
@@ -1671,7 +1671,7 @@ export default EventHistory
       <title>Web3 全栈开发实战：从钱包集成到签名验证</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhancong-qian-bao-ji-cheng-dao-qian-ming-yan-zheng/</link>
       <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhancong-qian-bao-ji-cheng-dao-qian-ming-yan-zheng/</guid>
-      <pubDate>Sat, 16 May 2026 13:36:55 +0800</pubDate>
+      <pubDate>Fri, 28 Nov 2025 11:23:05 +0800</pubDate>
       <description><![CDATA[<p>如今，Web3 应用早已不只是“连接个钱包”那么简单。一个真正可用的 DApp，至少需要做到三件事：前端流畅地连接钱包、与智能合约安全交互、后端可靠地验证用户身份。本文将以 <strong>React + wagmi + viem</strong> 为前端核心，<strong>Node.js</strong> 为后端，带你一步步搭建一个包含完整钱包集成流程的全栈 DApp。</p>
 <p>读完这篇文章，你将能够：</p>
 <ul>
