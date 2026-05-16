@@ -6,29 +6,392 @@
     <description>欢迎来到我的博客：                                                                           这里是我记录和分享的地方，我会持续输出实用的技术干货、真实的生活感悟，还有那些让人眼前一亮的有意思事物。                                                                                                      不仅如此，我还会用心整理一系列值得收藏的资料——从让你效率翻倍的工具，到需要时就能立刻翻出来的优质资源，都为你准备好啦。                                                                        希望这个小站能成为你的灵感角落和线上收藏夹，记得常来坐坐，也顺手点个收藏，这样就不会走丢啦～</description>
     <language>zh-cn</language>
     <generator>Gridea Pro</generator>
-    <lastBuildDate>Fri, 15 May 2026 00:07:59 +0800</lastBuildDate>
+    <lastBuildDate>Sat, 16 May 2026 13:36:55 +0800</lastBuildDate>
     <atom:link href="https://www.xx0-0xx.space/feed.xml" rel="self" type="application/rss+xml"></atom:link>
     <item>
-      <title>随笔</title>
-      <link>https://www.xx0-0xx.space/post/dui-li-cai-de-yi-xie-si-kao/</link>
-      <guid isPermaLink="true">https://www.xx0-0xx.space/post/dui-li-cai-de-yi-xie-si-kao/</guid>
-      <pubDate>Thu, 14 May 2026 17:27:48 +0800</pubDate>
-      <description><![CDATA[<p><strong>自由是什么？</strong></p>
-<p>很多人渴望自由，可自由是什么，我们在为生活奔波时，真的会有自由吗？</p>
-<p>可能自由需要财富来保驾护航吧。我从不相信所谓孤立的精神自由。精神自由是存在的，但现实中，精神自由的根基往往是财富自由。二者并非对立，而是互为表里。</p>
-<p>一个每天醒来就为账单发愁的人，很难说拥有免于恐惧的自由；一个为了保住工作而不断放弃原则的人，也很难说拥有道德上的自由。自由不是想做什么就做什么，而是有能力拒绝自己不想做的事。这种拒绝权，需要一定的经济基础作后盾。</p>
-<p><strong>资本的原始积累为何如此残酷？</strong></p>
-<p>实现财富的自由，需要有资本的积累，而资本的原始积累往往是困难的——第一个100万是最不容易的。</p>
-<p>作为一个普通人，如果找到了一个好工作，假设一个月存1万，一年就是12万，那100万需要10年。可是现实真的可以这样吗？10年间，自己和家人不能生病，你也不能有任何的高消费，包括结婚、买车、买房。</p>
-<p>一旦陷入以上的任何一个，麻烦便接踵而至。</p>
-<p>房贷、车贷会抽走一个人最富有精力、最具探索欲的10年。每一个人似乎都被一根无形的线拴着，像一只提线木偶。按照社会时钟按部就班地买房、买车、结婚、生子，往往会耗尽一个家庭最宝贵的十年，甚至二十年。</p>
-<p>这几笔开支，本质上是用未来的劳动力换取当下的稳定感。一旦背上，就很难再去冒险、去探索、去试错，因为每个月的还款日像闹钟一样准时响起。你的时间不再属于自己，你的精力被切割成碎片，你的好奇心被日常琐事消磨殆尽。</p>
-<p>这正是资本积累阶段最残酷的悖论：你越需要钱来换取自由，就越容易被那些看似“标配”的人生项目拖入更深的依赖。</p>
-<p><strong>出路：重新定义人生的先后顺序</strong></p>
-<p>所以需要延迟享受、降低物欲，甚至是阶段性地“躺平”——不是懒惰，而是拒绝参与内卷，把精力留给真正重要的事：提升认知、寻找机会、尝试创业。</p>
-<p>当资本雪球滚到一定规模，产生的被动收入足以覆盖基础生活时，再从容地考虑房、车、婚姻，反而可能拥有更纯粹的体验和更稳固的安全感。</p>
-<p>这条路注定孤独，因为它违背了主流的声音。会被质疑“为什么不按部就班”，会被贴上“不切实际”或“自私”的标签。</p>
-<p>但真相是，木偶的线并非不可挣脱。觉察到线的存在，就是剪断它的开始。自由从来不是一种静态的拥有，而是一种动态的、需要不断去争取和维护的平衡。它需要不断思考、不断取舍，并勇敢地为自己的选择负责。</p>
+      <title>Web3 全栈开发实战：从钱包集成到签名验证</title>
+      <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhancong-qian-bao-ji-cheng-dao-qian-ming-yan-zheng/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhancong-qian-bao-ji-cheng-dao-qian-ming-yan-zheng/</guid>
+      <pubDate>Sat, 16 May 2026 13:36:55 +0800</pubDate>
+      <description><![CDATA[<p>如今，Web3 应用早已不只是“连接个钱包”那么简单。一个真正可用的 DApp，至少需要做到三件事：前端流畅地连接钱包、与智能合约安全交互、后端可靠地验证用户身份。本文将以 <strong>React + wagmi + viem</strong> 为前端核心，<strong>Node.js</strong> 为后端，带你一步步搭建一个包含完整钱包集成流程的全栈 DApp。</p>
+<p>读完这篇文章，你将能够：</p>
+<ul>
+<li>在 React 应用中集成多钱包支持</li>
+<li>读取链上数据并发送交易</li>
+<li>实现“连接钱包即登录”</li>
+<li>在后端验证钱包签名以确保用户身份</li>
+</ul>
+<p>全文代码均可直接运行，你也可以在这个基础上自由扩展。</p>
+<hr />
+<h2 id="1-">1. 环境准备</h2>
+<p>开始之前，请确保本机已安装：</p>
+<ul>
+<li><strong>Node.js</strong> ≥ 18</li>
+<li><strong>pnpm</strong>（或 npm / yarn）</li>
+<li><strong>MetaMask</strong> 或其他钱包浏览器插件</li>
+</ul>
+<p>我们将在同一个仓库中维护前端和后端代码，最终目录结构如下：</p>
+<pre><code>web3-fullstack-demo/
+├── frontend/   # React + Vite
+└── backend/    # Express
+</code></pre>
+<hr />
+<h2 id="2---">2. 前端：项目初始化 &amp; 钱包连接</h2>
+<h3 id="21-">2.1 创建项目</h3>
+<p>使用 Vite 快速搭建 React + TypeScript 工程：</p>
+<pre><code class="language-bash">pnpm create vite frontend --template react-ts
+cd frontend
+pnpm install
+</code></pre>
+<h3 id="22--web3-">2.2 安装 Web3 依赖</h3>
+<p>我们使用 <strong>wagmi</strong> 管理钱包连接，<strong>viem</strong> 负责底层 RPC 调用与合约交互：</p>
+<pre><code class="language-bash">pnpm add wagmi viem @tanstack/react-query
+</code></pre>
+<blockquote>
+<p>wagmi v2 基于 vanilla 设计，与 viem 深度集成，是目前 React 生态中最主流的钱包连接方案。</p>
+</blockquote>
+<h3 id="23--wagmi-">2.3 配置 wagmi 与链</h3>
+<p>创建 <code>frontend/src/config/web3.ts</code>：</p>
+<pre><code class="language-ts">import { http, createConfig } from 'wagmi'
+import { mainnet, sepolia } from 'wagmi/chains'
+import { injected, metaMask, walletConnect } from 'wagmi/connectors'
+
+export const config = createConfig({
+  chains: [mainnet, sepolia],
+  connectors: [
+    injected(),           // 浏览器注入钱包（如 MetaMask）
+    metaMask(),           // 显式指定 MetaMask
+    walletConnect({       // WalletConnect 扫码连接
+      projectId: '你的_WalletConnect_Project_ID', // 从 cloud.walletconnect.com 获取
+    }),
+  ],
+  transports: {
+    [mainnet.id]: http(),
+    [sepolia.id]: http(),
+  },
+})
+</code></pre>
+<h3 id="24--context">2.4 提供全局 Context</h3>
+<p>修改 <code>frontend/src/main.tsx</code>，包裹 WagmiProvider：</p>
+<pre><code class="language-tsx">import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { WagmiProvider } from 'wagmi'
+import { config } from './config/web3'
+import App from './App'
+
+const queryClient = new QueryClient()
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  &lt;React.StrictMode&gt;
+    &lt;WagmiProvider config={config}&gt;
+      &lt;QueryClientProvider client={queryClient}&gt;
+        &lt;App /&gt;
+      &lt;/QueryClientProvider&gt;
+    &lt;/WagmiProvider&gt;
+  &lt;/React.StrictMode&gt;
+)
+</code></pre>
+<h3 id="25-">2.5 实现“连接钱包”按钮</h3>
+<p>在 <code>App.tsx</code> 中，我们用 wagmi 的 Hook 快速实现连接与账户信息展示：</p>
+<pre><code class="language-tsx">import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
+
+function App() {
+  const { address, isConnected } = useAccount()
+  const { connect, connectors, error, status } = useConnect()
+  const { disconnect } = useDisconnect()
+  const { data: balance } = useBalance({ address })
+
+  return (
+    &lt;div style={{ padding: 32 }}&gt;
+      &lt;h1&gt; Web3 钱包集成 Demo&lt;/h1&gt;
+
+      {isConnected ? (
+        &lt;div&gt;
+          &lt;p&gt; 已连接：{address}&lt;/p&gt;
+          &lt;p&gt; 余额：{balance?.formatted} {balance?.symbol}&lt;/p&gt;
+          &lt;button onClick={() =&gt; disconnect()}&gt;断开连接&lt;/button&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;div&gt;
+          &lt;p&gt;请先连接钱包&lt;/p&gt;
+          {connectors.map((connector) =&gt; (
+            &lt;button
+              key={connector.id}
+              onClick={() =&gt; connect({ connector })}
+              disabled={status === 'pending'}
+            &gt;
+              {connector.name}
+              {!connector.ready &amp;&amp; ' (未安装)'}
+            &lt;/button&gt;
+          ))}
+          {error &amp;&amp; &lt;p style={{ color: 'red' }}&gt;{error.message}&lt;/p&gt;}
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  )
+}
+
+export default App
+</code></pre>
+<p>运行 <code>pnpm dev</code>，你应该能看到连接按钮，并能成功连接 MetaMask 或 WalletConnect。</p>
+<blockquote>
+<p>到此，钱包连接的基础设施就搭建完成了。</p>
+</blockquote>
+<hr />
+<h2 id="3-">3. 前端：与合约交互</h2>
+<h3 id="31--abi-">3.1 准备合约 ABI 与地址</h3>
+<p>假设我们已部署一个简单的“存取值”合约在 Sepolia 测试网：</p>
+<pre><code class="language-solidity">// ValueStore.sol
+contract ValueStore {
+    uint256 public value;
+
+    event ValueChanged(uint256 newValue);
+
+    function setValue(uint256 _value) external {
+        value = _value;
+        emit ValueChanged(_value);
+    }
+}
+</code></pre>
+<p>合约地址：<code>0xYourContractAddress</code><br />
+ABI 只需保留会用到的片段（也可以直接导入完整 JSON）。</p>
+<p>创建 <code>frontend/src/contracts/valueStore.ts</code>：</p>
+<pre><code class="language-ts">export const VALUE_STORE_ADDRESS = '0xYourContractAddress'
+
+export const VALUE_STORE_ABI = [
+  {
+    inputs: [],
+    name: 'value',
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '_value', type: 'uint256' }],
+    name: 'setValue',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, name: 'newValue', type: 'uint256' }],
+    name: 'ValueChanged',
+    type: 'event',
+  },
+] as const
+</code></pre>
+<h3 id="32-">3.2 读取合约数据</h3>
+<p>使用 <code>useReadContract</code> 读取链上状态：</p>
+<pre><code class="language-tsx">import { useReadContract } from 'wagmi'
+import { VALUE_STORE_ADDRESS, VALUE_STORE_ABI } from './contracts/valueStore'
+
+function ContractData() {
+  const { data: value, isError, isLoading } = useReadContract({
+    address: VALUE_STORE_ADDRESS,
+    abi: VALUE_STORE_ABI,
+    functionName: 'value',
+  })
+
+  if (isLoading) return &lt;p&gt;加载中…&lt;/p&gt;
+  if (isError) return &lt;p&gt;读取失败&lt;/p&gt;
+  return &lt;p&gt; 合约当前值：{value?.toString()}&lt;/p&gt;
+}
+</code></pre>
+<h3 id="33-">3.3 写入合约（发送交易）</h3>
+<p>用 <code>useWriteContract</code> + <code>useWaitForTransactionReceipt</code> 实现写操作并等待上链：</p>
+<pre><code class="language-tsx">import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { VALUE_STORE_ADDRESS, VALUE_STORE_ABI } from './contracts/valueStore'
+import { parseEther } from 'viem'
+import { useState } from 'react'
+
+function SetValue() {
+  const [inputValue, setInputValue] = useState('')
+  const { data: hash, writeContract } = useWriteContract()
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({ hash })
+
+  const handleSet = () =&gt; {
+    if (!inputValue) return
+    writeContract({
+      address: VALUE_STORE_ADDRESS,
+      abi: VALUE_STORE_ABI,
+      functionName: 'setValue',
+      args: [BigInt(inputValue)],
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;input
+        type=&quot;number&quot;
+        value={inputValue}
+        onChange={(e) =&gt; setInputValue(e.target.value)}
+        placeholder=&quot;新值&quot;
+      /&gt;
+      &lt;button onClick={handleSet} disabled={isConfirming}&gt;
+        {isConfirming ? '确认中…' : '设置'}
+      &lt;/button&gt;
+      {hash &amp;&amp; &lt;p&gt;交易哈希：{hash}&lt;/p&gt;}
+      {isConfirmed &amp;&amp; &lt;p style={{ color: 'green' }}&gt; 上链成功！&lt;/p&gt;}
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<blockquote>
+<p>这样我们就完成了钱包连接、余额查询、合约读写等前端核心功能。</p>
+</blockquote>
+<hr />
+<h2 id="4-">4. 连接钱包即登录：签名验证流程</h2>
+<p>很多 DApp 需要后端确认“某个操作确实来自该钱包地址”。标准做法是：</p>
+<ol>
+<li>后端生成一条随机消息（nonce）</li>
+<li>前端用钱包对该消息签名</li>
+<li>后端验证签名，返回 JWT 或 session</li>
+</ol>
+<p>这比传统的密码登录更安全、更去中心化。</p>
+<h3 id="41--nonce-">4.1 后端：生成 Nonce 接口</h3>
+<p>创建 <code>backend/</code> 目录并初始化：</p>
+<pre><code class="language-bash">mkdir backend &amp;&amp; cd backend
+pnpm init
+pnpm add express cors viem
+pnpm add -D typescript @types/express @types/cors tsx
+</code></pre>
+<p>配置 <code>tsconfig.json</code>，然后编写 <code>backend/src/index.ts</code>：</p>
+<pre><code class="language-ts">import express from 'express'
+import cors from 'cors'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+import { createPublicClient, http } from 'viem'
+import { mainnet } from 'viem/chains'
+
+const app = express()
+app.use(cors())
+app.use(express.json())
+
+// 用于签名验证的客户端（也可以不连链，直接用 viem 的 verifyMessage）
+// 这里使用 viem 原生方法，不需要 provider
+
+// 存储 nonce（实际项目应存数据库，并绑定 session）
+const nonces = new Map&lt;string, string&gt;()
+
+// 1. 请求 nonce
+app.post('/auth/nonce', (req, res) =&gt; {
+  const { address } = req.body
+  if (!address) return res.status(400).json({ error: '缺少地址' })
+
+  const nonce = `登录验证：${Math.floor(Math.random() * 1e9)}`
+  nonces.set(address, nonce)
+
+  // 设置过期时间（示例 5 分钟）
+  setTimeout(() =&gt; nonces.delete(address), 5 * 60 * 1000)
+
+  res.json({ nonce })
+})
+
+// 2. 验证签名
+app.post('/auth/verify', (req, res) =&gt; {
+  const { address, signature } = req.body
+  const nonce = nonces.get(address)
+
+  if (!nonce) return res.status(400).json({ error: 'nonce 无效或已过期' })
+
+  try {
+    // viem 的 verifyMessage 可以直接验证以太坊个人签名
+    const isValid = verifyMessage({
+      address: address as `0x${string}`,
+      message: nonce,
+      signature: signature as `0x${string}`,
+    })
+
+    if (isValid) {
+      nonces.delete(address)
+      // 这里可以签发 JWT，示例中直接返回成功
+      res.json({ success: true, token: 'your-jwt-token' })
+    } else {
+      res.status(401).json({ error: '签名验证失败' })
+    }
+  } catch (e) {
+    res.status(401).json({ error: '签名验证异常' })
+  }
+})
+
+app.listen(3001, () =&gt; {
+  console.log('后端运行在 http://localhost:3001')
+})
+</code></pre>
+<blockquote>
+<p>注意：上面的 <code>verifyMessage</code> 需要从 <code>viem</code> 导入，实际代码顶部加上：<br />
+<code>import { verifyMessage } from 'viem'</code></p>
+</blockquote>
+<h3 id="42-">4.2 前端：发起登录流程</h3>
+<p>在前端封装登录逻辑，点击“使用钱包登录”时调用：</p>
+<pre><code class="language-tsx">import { useSignMessage } from 'wagmi'
+
+function LoginWithWallet() {
+  const { address } = useAccount()
+  const { signMessageAsync } = useSignMessage()
+
+  const login = async () =&gt; {
+    if (!address) return
+
+    // 1. 获取 nonce
+    const nonceRes = await fetch('http://localhost:3001/auth/nonce', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    })
+    const { nonce } = await nonceRes.json()
+
+    // 2. 钱包签名
+    const signature = await signMessageAsync({ message: nonce })
+
+    // 3. 发送签名到后端验证
+    const verifyRes = await fetch('http://localhost:3001/auth/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, signature }),
+    })
+    const result = await verifyRes.json()
+
+    if (result.success) {
+      alert('登录成功！')
+      // 保存 token，后续请求携带
+    } else {
+      alert('登录失败')
+    }
+  }
+
+  return &lt;button onClick={login}&gt; 钱包登录&lt;/button&gt;
+}
+</code></pre>
+<p>至此，“连接钱包即登录”的完整流程就跑通了。</p>
+<hr />
+<h2 id="5-">5. 常见问题与优化建议</h2>
+<h3 id="51-">5.1 切换网络</h3>
+<p>wagmi 提供了 <code>useSwitchChain</code> Hook，可以引导用户切换到指定链，或者使用 <code>switchChain</code> 直接调用。</p>
+<h3 id="52-">5.2 多钱包冲突</h3>
+<p>当用户同时安装 MetaMask 和 Coinbase Wallet 时，<code>injected</code> 连接器会出现多个选项。使用 <code>metaMask()</code> 或 <code>coinbaseWallet()</code> 显式指定可以避免混淆。</p>
+<h3 id="53-">5.3 生产环境安全</h3>
+<ul>
+<li>Nonce 应存储在 Redis/数据库中，并设置合理过期时间。</li>
+<li>避免在 Nonce 中泄露敏感信息。</li>
+<li>签名验证通过后务必签发具备时效性的 JWT，后续接口验证 JWT 而非重复签名。</li>
+<li>前端请求后端时，使用 HTTPS 防止中间人攻击。</li>
+</ul>
+<hr />
+<h2 id="6-">6. 总结</h2>
+<p>这篇文章我们从零搭建了一个 <strong>Web3 全栈应用的钱包集成方案</strong>，覆盖了：</p>
+<ul>
+<li>React 中使用 wagmi + viem 连接多种钱包</li>
+<li>读取链上余额与合约状态</li>
+<li>发送交易并等待上链确认</li>
+<li>实现“签名即登录”的用户认证流程</li>
+</ul>
+<p>完整代码已经具备了可扩展性：你可以在前端接入更多的合约方法，在后端加入数据库持久化用户数据，或者用 JWT 保护 API 接口。希望这篇教程能帮你迈出 Web3 全栈开发坚实的一步。</p>
+<hr />
+<p><strong>如果这篇教程对你有帮助，欢迎分享或留言交流。我们下一篇文章再见！</strong></p>
 ]]></description>
     </item>
   </channel>
