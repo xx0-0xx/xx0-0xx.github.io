@@ -6,8 +6,390 @@
     <description>一个专注 Web3 全栈开发的技术博客，分享实战教程、前沿工具与去中心化应用搭建经验。                      </description>
     <language>zh-cn</language>
     <generator>Gridea Pro</generator>
-    <lastBuildDate>Sat, 16 May 2026 13:48:17 +0800</lastBuildDate>
+    <lastBuildDate>Sat, 16 May 2026 13:56:20 +0800</lastBuildDate>
     <atom:link href="https://www.xx0-0xx.space/feed.xml" rel="self" type="application/rss+xml"></atom:link>
+    <item>
+      <title>Web3 全栈开发实战：Uniswap V2 流动性管理</title>
+      <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanuniswap-v2-liu-dong-xing-guan-li/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanuniswap-v2-liu-dong-xing-guan-li/</guid>
+      <pubDate>Sat, 16 May 2026 13:56:20 +0800</pubDate>
+      <description><![CDATA[<p>截至目前，我们的全栈应用已经可以连接钱包、发送交易、监听事件、操作 ERC-20 代币。但这本质上还只是“转账工具”。要进入真正的 DeFi 世界，我们必须理解并实现<strong>去中心化交易所（DEX）的核心逻辑：流动性池与兑换</strong>。</p>
+<p>Uniswap V2 是最经典的 AMM（自动做市商）协议，它的核心概念简洁而强大：任何人都可以存入两种代币组成交易对，并据此赚取手续费；任何人都可以调用 <code>swap</code> 进行兑换，价格由恒定乘积公式 <code>x * y = k</code> 决定。</p>
+<p>今天这篇文章，你将从零完成：</p>
+<ul>
+<li>理解 Uniswap V2 的核心合约接口（Router、Pair、Factory）</li>
+<li>在测试网部署必要的代币并创建交易对</li>
+<li>实现“添加流动性”（Add Liquidity）全流程</li>
+<li>实现“代币兑换”（Swap）</li>
+<li>监听 <code>Swap</code>、<code>Mint</code>、<code>Burn</code> 等核心事件</li>
+<li>后端索引交易数据，前端展示历史</li>
+</ul>
+<p>继续使用 React + wagmi + viem + Node.js + SQLite。</p>
+<hr />
+<h2 id="1-uniswap-v2-">1. Uniswap V2 架构速览</h2>
+<p>我们要交互的主要合约有三个：</p>
+<table>
+<thead>
+<tr>
+<th>合约</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>UniswapV2Factory</strong></td>
+<td>创建新的交易对（Pair）</td>
+</tr>
+<tr>
+<td><strong>UniswapV2Pair</strong></td>
+<td>具体的流动性池，管理两种代币的储备量</td>
+</tr>
+<tr>
+<td><strong>UniswapV2Router02</strong></td>
+<td>面向用户的入口，封装了添加流动性、移除、兑换等逻辑</td>
+</tr>
+</tbody>
+</table>
+<p>我们绝大多数时候只需要和 <strong>Router</strong> 打交道。Sepolia 测试网上已经部署了官方 Uniswap V2 合约，地址可以直接用：</p>
+<pre><code class="language-ts">// contracts/uniswap.ts
+export const UNISWAP_V2_ROUTER = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D' // Sepolia 地址
+export const UNISWAP_V2_FACTORY = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f' // Sepolia
+</code></pre>
+<hr />
+<h2 id="2-">2. 准备两种测试代币</h2>
+<p>你需要两种 ERC-20 代币来创建交易对。沿用上一篇的方法，再次部署一个 <code>TokenB</code> 合约，改个名字即可。或者直接用 Sepolia 上已有的测试代币，例如 <strong>WETH</strong>（<code>0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14</code>）与你自己部署的 MTK。</p>
+<p>我们约定：</p>
+<ul>
+<li><strong>TokenA (MTK)</strong>：上一篇部署的 <code>0xA1B2C3...</code></li>
+<li><strong>TokenB (WETH)</strong>：Sepolia WETH 地址 <code>0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14</code></li>
+</ul>
+<p>确保你两个代币都有一些余额。</p>
+<hr />
+<h2 id="3-">3. 添加流动性：前端与合约交互</h2>
+<p>添加流动性需要调用 Router 的 <code>addLiquidity</code> 或 <code>addLiquidityETH</code>。由于我们使用两个 ERC-20，选择 <code>addLiquidity</code>。</p>
+<h3 id="31-">3.1 授权</h3>
+<p>在添加流动性之前，必须先对两个代币分别 <code>approve</code> Router 地址，允许它转走你的代币。</p>
+<h3 id="32-">3.2 实现添加流动性组件</h3>
+<pre><code class="language-tsx">import { useState } from 'react'
+import {
+  useWriteContract,
+  useWaitForTransactionReceipt,
+  useAccount,
+} from 'wagmi'
+import { parseEther, erc20Abi } from 'viem'
+import { TOKEN_ADDRESS } from './contracts/token' // MTK 地址
+import { UNISWAP_V2_ROUTER } from './contracts/uniswap'
+
+// Router ABI (仅用到的函数)
+const routerAbi = [
+  {
+    inputs: [
+      { name: 'tokenA', type: 'address' },
+      { name: 'tokenB', type: 'address' },
+      { name: 'amountADesired', type: 'uint256' },
+      { name: 'amountBDesired', type: 'uint256' },
+      { name: 'amountAMin', type: 'uint256' },
+      { name: 'amountBMin', type: 'uint256' },
+      { name: 'to', type: 'address' },
+      { name: 'deadline', type: 'uint256' },
+    ],
+    name: 'addLiquidity',
+    outputs: [
+      { name: 'amountA', type: 'uint256' },
+      { name: 'amountB', type: 'uint256' },
+      { name: 'liquidity', type: 'uint256' },
+    ],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+] as const
+
+const WETH_ADDRESS = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14'
+
+export default function AddLiquidity() {
+  const { address } = useAccount()
+  const [amountMTK, setAmountMTK] = useState('')
+  const [amountWETH, setAmountWETH] = useState('')
+  const { writeContract: approveMTK, data: approveHashMTK } = useWriteContract()
+  const { writeContract: approveWETH, data: approveHashWETH } = useWriteContract()
+  const { writeContract: addLiquidity, data: addHash } = useWriteContract()
+  const { isLoading: isAdding, isSuccess: isAdded } =
+    useWaitForTransactionReceipt({ hash: addHash })
+
+  const handleApproveMTK = () =&gt; {
+    approveMTK({
+      address: TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [UNISWAP_V2_ROUTER, parseEther(amountMTK)],
+    })
+  }
+
+  const handleApproveWETH = () =&gt; {
+    approveWETH({
+      address: WETH_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [UNISWAP_V2_ROUTER, parseEther(amountWETH)],
+    })
+  }
+
+  const handleAdd = () =&gt; {
+    if (!address || !amountMTK || !amountWETH) return
+    const deadline = Math.floor(Date.now() / 1000) + 60 * 20 // 20 minutes
+    addLiquidity({
+      address: UNISWAP_V2_ROUTER,
+      abi: routerAbi,
+      functionName: 'addLiquidity',
+      args: [
+        TOKEN_ADDRESS,
+        WETH_ADDRESS,
+        parseEther(amountMTK),
+        parseEther(amountWETH),
+        0, // amountAMin: 接受滑点，演示设为 0（不安全，生产请合理设置）
+        0,
+        address,
+        BigInt(deadline),
+      ],
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;h3&gt; 添加流动性&lt;/h3&gt;
+      &lt;div&gt;
+        &lt;input
+          type=&quot;number&quot;
+          placeholder=&quot;MTK 数量&quot;
+          value={amountMTK}
+          onChange={(e) =&gt; setAmountMTK(e.target.value)}
+        /&gt;
+        &lt;button onClick={handleApproveMTK}&gt;授权 MTK&lt;/button&gt;
+        {approveHashMTK &amp;&amp; &lt;span&gt;成功&lt;/span&gt;}
+      &lt;/div&gt;
+      &lt;div&gt;
+        &lt;input
+          type=&quot;number&quot;
+          placeholder=&quot;WETH 数量&quot;
+          value={amountWETH}
+          onChange={(e) =&gt; setAmountWETH(e.target.value)}
+        /&gt;
+        &lt;button onClick={handleApproveWETH}&gt;授权 WETH&lt;/button&gt;
+        {approveHashWETH &amp;&amp; &lt;span&gt;成功&lt;/span&gt;}
+      &lt;/div&gt;
+      &lt;button onClick={handleAdd} disabled={isAdding}&gt;
+        {isAdding ? '添加中...' : '添加流动性'}
+      &lt;/button&gt;
+      {isAdded &amp;&amp; &lt;p style={{ color: 'green' }}&gt; 流动性添加成功！&lt;/p&gt;}
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<blockquote>
+<p>生产环境务必计算 <code>amountAMin</code> 和 <code>amountBMin</code> 防止抢跑，这里为简洁省略。</p>
+</blockquote>
+<hr />
+<h2 id="4-swap">4. 代币兑换（Swap）</h2>
+<p>兑换可以用 <code>swapExactTokensForTokens</code>（精确输入）或 <code>swapTokensForExactTokens</code>（精确输出）。我们实现前者。</p>
+<pre><code class="language-tsx">export default function Swap() {
+  const [amountIn, setAmountIn] = useState('')
+  const [tokenIn, setTokenIn] = useState('MTK') // 简化，实际应能切换
+  const { writeContract, data: hash } = useWriteContract()
+  const { isLoading, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { address } = useAccount()
+
+  const handleSwap = () =&gt; {
+    const path =
+      tokenIn === 'MTK'
+        ? [TOKEN_ADDRESS, WETH_ADDRESS]
+        : [WETH_ADDRESS, TOKEN_ADDRESS]
+    const deadline = Math.floor(Date.now() / 1000) + 60 * 20
+
+    writeContract({
+      address: UNISWAP_V2_ROUTER,
+      abi: [
+        {
+          name: 'swapExactTokensForTokens',
+          type: 'function',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'amountIn', type: 'uint256' },
+            { name: 'amountOutMin', type: 'uint256' },
+            { name: 'path', type: 'address[]' },
+            { name: 'to', type: 'address' },
+            { name: 'deadline', type: 'uint256' },
+          ],
+          outputs: [{ type: 'uint256[]' }],
+        },
+      ],
+      functionName: 'swapExactTokensForTokens',
+      args: [parseEther(amountIn), 0, path, address!, BigInt(deadline)],
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;h3&gt; 兑换&lt;/h3&gt;
+      &lt;input
+        type=&quot;number&quot;
+        placeholder=&quot;输入数量&quot;
+        value={amountIn}
+        onChange={(e) =&gt; setAmountIn(e.target.value)}
+      /&gt;
+      &lt;select value={tokenIn} onChange={(e) =&gt; setTokenIn(e.target.value)}&gt;
+        &lt;option value=&quot;MTK&quot;&gt;MTK → WETH&lt;/option&gt;
+        &lt;option value=&quot;WETH&quot;&gt;WETH → MTK&lt;/option&gt;
+      &lt;/select&gt;
+      &lt;button onClick={handleSwap} disabled={isLoading || !amountIn}&gt;
+        {isLoading ? '兑换中...' : '兑换'}
+      &lt;/button&gt;
+      {isSuccess &amp;&amp; &lt;p style={{ color: 'green' }}&gt; 兑换成功！&lt;/p&gt;}
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<p>同样，兑换前需要先 <code>approve</code> Router 转走代币，这里略过，可以复用前面的授权逻辑。</p>
+<hr />
+<h2 id="5--dex-">5. 实时监听 DEX 事件</h2>
+<p>Uniswap V2 的核心事件都在 Pair 合约上。但我们通常关心全网的交易，可以直接用 Factory 地址过滤，或者监听我们关心的 Pair 地址。为了简单，我们可以监听已知交易对地址的事件。不过先要知道 Pair 地址。</p>
+<h3 id="51--pair-">5.1 获取 Pair 地址</h3>
+<p>我们可以调用 Factory 的 <code>getPair</code> 获取。在前端添加一个只读查询：</p>
+<pre><code class="language-tsx">import { useReadContract } from 'wagmi'
+import { UNISWAP_V2_FACTORY } from './contracts/uniswap'
+
+const factoryAbi = [
+  {
+    inputs: [
+      { name: '', type: 'address' },
+      { name: '', type: 'address' },
+    ],
+    name: 'getPair',
+    outputs: [{ type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+] as const
+
+export function usePairAddress() {
+  const { data } = useReadContract({
+    address: UNISWAP_V2_FACTORY,
+    abi: factoryAbi,
+    functionName: 'getPair',
+    args: [TOKEN_ADDRESS, WETH_ADDRESS],
+  })
+  return data as string | undefined
+}
+</code></pre>
+<h3 id="52--swap-">5.2 监听 Swap 事件</h3>
+<p>拿到 Pair 地址后，我们可以监听该 Pair 上的 <code>Swap</code> 事件：</p>
+<pre><code class="language-tsx">import { useWatchContractEvent } from 'wagmi'
+import { parseAbiItem } from 'viem'
+
+const pairAbi = [
+  {
+    type: 'event',
+    name: 'Swap',
+    inputs: [
+      { indexed: true, name: 'sender', type: 'address' },
+      { indexed: false, name: 'amount0In', type: 'uint256' },
+      { indexed: false, name: 'amount1In', type: 'uint256' },
+      { indexed: false, name: 'amount0Out', type: 'uint256' },
+      { indexed: false, name: 'amount1Out', type: 'uint256' },
+      { indexed: true, name: 'to', type: 'address' },
+    ],
+  },
+] as const
+
+export default function SwapWatcher({ pairAddress }: { pairAddress?: string }) {
+  useWatchContractEvent({
+    address: pairAddress as `0x${string}` | undefined,
+    abi: pairAbi,
+    eventName: 'Swap',
+    onLogs(logs) {
+      for (const log of logs) {
+        const { sender, amount0In, amount1In, amount0Out, amount1Out, to } = log.args
+        console.log(`Swap: ${sender} -&gt; ${to}, in: ${amount0In}/${amount1In}, out: ${amount0Out}/${amount1Out}`)
+        // 更新全局状态或显示通知
+      }
+    },
+    enabled: !!pairAddress,
+  })
+
+  return null
+}
+</code></pre>
+<p>同样可监听 <code>Mint</code>（添加流动性）和 <code>Burn</code>（移除流动性），使用方式完全一致。</p>
+<hr />
+<h2 id="6-">6. 后端索引交易数据</h2>
+<p>后端同样需要监听这些事件来构建历史记录和统计。</p>
+<h3 id="61--swap-">6.1 创建 Swap 数据表</h3>
+<pre><code class="language-sql">CREATE TABLE IF NOT EXISTS swap_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pair TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  amount0In TEXT,
+  amount1In TEXT,
+  amount0Out TEXT,
+  amount1Out TEXT,
+  toAddress TEXT NOT NULL,
+  transactionHash TEXT NOT NULL,
+  blockNumber INTEGER NOT NULL,
+  timestamp INTEGER NOT NULL
+)
+</code></pre>
+<h3 id="62-">6.2 监听并存储</h3>
+<pre><code class="language-ts">import { createPublicClient, http, parseAbiItem } from 'viem'
+import { sepolia } from 'viem/chains'
+
+const client = createPublicClient({ chain: sepolia, transport: http() })
+
+export function startSwapListener(pairAddress: string) {
+  client.watchContractEvent({
+    address: pairAddress as `0x${string}`,
+    abi: pairAbi,
+    eventName: 'Swap',
+    onLogs(logs) {
+      for (const log of logs) {
+        insertSwapEvent({ ... })
+      }
+    },
+  })
+}
+</code></pre>
+<h3 id="63--api">6.3 提供 API</h3>
+<pre><code class="language-ts">app.get('/swaps', (req, res) =&gt; {
+  const swaps = getSwaps(100)
+  res.json(swaps)
+})
+</code></pre>
+<p>前端再做一个简单的历史展示组件，调用此接口。</p>
+<hr />
+<h2 id="7-">7. 运行与测试</h2>
+<ol>
+<li>确保 Sepolia 上有 MTK 和 WETH 余额</li>
+<li>授权 Router 使用这两种代币</li>
+<li>添加流动性，成功后你会收到 LP 代币</li>
+<li>执行一笔 Swap，观察控制台日志和数据库记录</li>
+<li>前端 UI 自动显示交易列表</li>
+</ol>
+<hr />
+<h2 id="8-">8. 生产级注意事项</h2>
+<ul>
+<li><strong>滑点保护</strong>：amountOutMin 不能为 0，必须根据预期价格动态计算</li>
+<li><strong>Gas 优化</strong>：使用 <code>addLiquidityETH</code> 包装原生代币</li>
+<li><strong>价格预言</strong>：可通过 Pair 合约的 <code>price0CumulativeLast</code> 构建 TWAP</li>
+<li><strong>授权范围</strong>：不要授权无限量，每次只授权需要使用的数量</li>
+</ul>
+<hr />
+<h2 id="9-">9. 总结</h2>
+<p>本篇将你的全栈 DApp 能力直接推进到了 DeFi 最核心的流动性管理领域：</p>
+<ul>
+<li>学会了与 Uniswap V2 Router 交互添加流动性与兑换</li>
+<li>掌握了 Swap / Mint / Burn 事件的实时监听与历史存储</li>
+<li>建立了“价格 x 数量”的 AMM 直觉</li>
+</ul>
+]]></description>
+    </item>
     <item>
       <title>Web3 全栈开发实战：ERC-20 代币集成与转账</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/</link>
