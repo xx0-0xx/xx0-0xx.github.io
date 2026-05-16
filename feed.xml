@@ -6,8 +6,621 @@
     <description>一个专注 Web3 全栈开发的技术博客，分享实战教程、前沿工具与去中心化应用搭建经验。                      </description>
     <language>zh-cn</language>
     <generator>Gridea Pro</generator>
-    <lastBuildDate>Sat, 16 May 2026 13:36:55 +0800</lastBuildDate>
+    <lastBuildDate>Sat, 16 May 2026 13:48:17 +0800</lastBuildDate>
     <atom:link href="https://www.xx0-0xx.space/feed.xml" rel="self" type="application/rss+xml"></atom:link>
+    <item>
+      <title>Web3 全栈开发实战：ERC-20 代币集成与转账</title>
+      <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/</guid>
+      <pubDate>Sat, 16 May 2026 13:48:17 +0800</pubDate>
+      <description><![CDATA[<p>在之前的文章中，我们完成了钱包连接、合约交互以及事件监听的完整闭环。今天，系列第三篇将聚焦 <strong>ERC-20 代币</strong> —— 这是 DeFi 世界里最基础的资产标准。我们将从部署自己的测试代币开始，到前端查询余额、转账、授权，再到后端索引所有转账记录，一气呵成。</p>
+<p>学完这篇文章，你将掌握：</p>
+<ul>
+<li>用 OpenZeppelin 部署 ERC-20 合约</li>
+<li>在前端查询代币信息（符号、精度、余额）</li>
+<li>实现代币转账与授权转账（Approve + TransferFrom）</li>
+<li>实时监听 Transfer 事件并同步 UI</li>
+<li>后端持久化转账记录并开放 API</li>
+</ul>
+<p>所有代码依然基于 React + wagmi + viem + Node.js。</p>
+<hr />
+<h2 id="1-">1. 部署一个测试代币</h2>
+<p>你需要一个自己的 ERC-20 代币来练习。打开 <a href="https://remix.ethereum.org/">Remix IDE</a>，创建 <code>MyToken.sol</code>：</p>
+<pre><code class="language-solidity">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import &quot;@openzeppelin/contracts/token/ERC20/ERC20.sol&quot;;
+
+contract MyToken is ERC20 {
+    constructor() ERC20(&quot;MyToken&quot;, &quot;MTK&quot;) {
+        _mint(msg.sender, 1000000 * 10 ** decimals());
+    }
+}
+</code></pre>
+<ul>
+<li>编译后，在 “Deploy &amp; run transactions” 中选择 <strong>Injected Provider - MetaMask</strong>，网络切换到 <strong>Sepolia</strong>。</li>
+<li>点击 Deploy，确认交易。</li>
+<li>部署成功后，复制合约地址，例如 <code>0xA1B2C3...</code>，后面会频繁用到。</li>
+</ul>
+<hr />
+<h2 id="2-">2. 前端：读取代币信息与余额</h2>
+<h3 id="21-">2.1 共享代币地址</h3>
+<p>新建 <code>frontend/src/contracts/token.ts</code>：</p>
+<pre><code class="language-ts">export const TOKEN_ADDRESS = '0xA1B2C3...' // 替换为你的合约地址
+</code></pre>
+<h3 id="22--erc20abi">2.2 使用 erc20Abi</h3>
+<p>viem 内置了完整的 ERC-20 ABI，我们直接导入：</p>
+<pre><code class="language-tsx">import { erc20Abi } from 'viem'
+import { useReadContract, useAccount } from 'wagmi'
+import { TOKEN_ADDRESS } from './contracts/token'
+import { formatUnits } from 'viem'
+
+function TokenInfo() {
+  const { address } = useAccount()
+
+  const { data: symbol } = useReadContract({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'symbol',
+  })
+
+  const { data: decimals } = useReadContract({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'decimals',
+  })
+
+  const { data: balance } = useReadContract({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+  })
+
+  const formattedBalance = balance !== undefined &amp;&amp; decimals !== undefined
+    ? formatUnits(balance, decimals)
+    : '0'
+
+  return (
+    &lt;div&gt;
+      &lt;p&gt;代币：{symbol?.toString()}&lt;/p&gt;
+      &lt;p&gt;精度：{decimals?.toString()}&lt;/p&gt;
+      &lt;p&gt;余额：{formattedBalance}&lt;/p&gt;
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<p>记得在 <code>App.tsx</code> 中引入 <code>&lt;TokenInfo /&gt;</code>。</p>
+<hr />
+<h2 id="3-">3. 前端：实现代币转账</h2>
+<p>转账就是调用 <code>transfer(to, amount)</code>。我们需要一个输入框和发送按钮：</p>
+<pre><code class="language-tsx">import { useState } from 'react'
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { erc20Abi, parseUnits } from 'viem'
+import { TOKEN_ADDRESS } from './contracts/token'
+
+function TransferToken() {
+  const [to, setTo] = useState('')
+  const [amount, setAmount] = useState('')
+  const { data: hash, writeContract } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({ hash })
+
+  const handleTransfer = () =&gt; {
+    if (!to || !amount) return
+    writeContract({
+      address: TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'transfer',
+      args: [to as `0x${string}`, parseUnits(amount, 18)], // 假设 18 精度
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;h4&gt;转账 MTK&lt;/h4&gt;
+      &lt;input placeholder=&quot;接收地址&quot; value={to} onChange={(e) =&gt; setTo(e.target.value)} /&gt;
+      &lt;input placeholder=&quot;数量&quot; value={amount} onChange={(e) =&gt; setAmount(e.target.value)} /&gt;
+      &lt;button onClick={handleTransfer} disabled={isConfirming}&gt;
+        {isConfirming ? '确认中...' : '发送'}
+      &lt;/button&gt;
+      {hash &amp;&amp; &lt;p&gt;交易哈希：{hash}&lt;/p&gt;}
+      {isConfirmed &amp;&amp; &lt;p style={{ color: 'green' }}&gt; 转账成功！&lt;/p&gt;}
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<blockquote>
+<p>注意：真实项目中精度可以通过 <code>useReadContract</code> 获取，这里简化为 18。</p>
+</blockquote>
+<hr />
+<h2 id="4-">4. 前端：授权与授权转账</h2>
+<p>有时 DApp 需要代表用户转移代币（例如去中心化交易所）。这要求用户先调用 <code>approve(spender, amount)</code>，然后合约再调用 <code>transferFrom</code>。我们模拟一次授权给自己的另一个账户（或一个测试合约）。</p>
+<pre><code class="language-tsx">function ApproveAndTransferFrom() {
+  const [spender, setSpender] = useState('')
+  const [approveAmount, setApproveAmount] = useState('')
+  const [transferTo, setTransferTo] = useState('')
+  const [transferAmount, setTransferAmount] = useState('')
+
+  const { data: approveHash, writeContract: approve } = useWriteContract()
+  const { data: transferFromHash, writeContract: transferFrom } = useWriteContract()
+
+  const handleApprove = () =&gt; {
+    approve({
+      address: TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [spender as `0x${string}`, parseUnits(approveAmount, 18)],
+    })
+  }
+
+  const handleTransferFrom = () =&gt; {
+    // 注意：这里调用者必须是 spender，且需要用户已经授权
+    transferFrom({
+      address: TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'transferFrom',
+      args: [
+        '0xUserAddress', // from (代币持有者)
+        transferTo as `0x${string}`,
+        parseUnits(transferAmount, 18),
+      ],
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;h4&gt;授权（Approve）&lt;/h4&gt;
+      &lt;input placeholder=&quot;被授权地址 (spender)&quot; value={spender} onChange={(e) =&gt; setSpender(e.target.value)} /&gt;
+      &lt;input placeholder=&quot;授权数量&quot; value={approveAmount} onChange={(e) =&gt; setApproveAmount(e.target.value)} /&gt;
+      &lt;button onClick={handleApprove}&gt;授权&lt;/button&gt;
+      {approveHash &amp;&amp; &lt;p&gt;授权交易：{approveHash}&lt;/p&gt;}
+
+      &lt;h4&gt;授权转账（TransferFrom）&lt;/h4&gt;
+      &lt;input placeholder=&quot;接收地址&quot; value={transferTo} onChange={(e) =&gt; setTransferTo(e.target.value)} /&gt;
+      &lt;input placeholder=&quot;数量&quot; value={transferAmount} onChange={(e) =&gt; setTransferAmount(e.target.value)} /&gt;
+      &lt;button onClick={handleTransferFrom}&gt;授权转账&lt;/button&gt;
+      {transferFromHash &amp;&amp; &lt;p&gt;转账交易：{transferFromHash}&lt;/p&gt;}
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<blockquote>
+<p>实际使用时，<code>from</code> 地址应自动取当前连接的钱包地址，并且你可能需要先调用 <code>approve</code> 后再 <code>transferFrom</code>。这里展示两个独立按钮方便演示。</p>
+</blockquote>
+<hr />
+<h2 id="5--transfer-">5. 前端：实时监听 Transfer 事件</h2>
+<p>代币转账和授权都会触发 <code>Transfer</code> 事件。我们用它来更新 UI，无需手动刷新余额。</p>
+<pre><code class="language-tsx">import { useWatchContractEvent } from 'wagmi'
+import { parseAbiItem } from 'viem'
+import { TOKEN_ADDRESS } from './contracts/token'
+import { erc20Abi } from 'viem'
+
+function TransferWatcher() {
+  useWatchContractEvent({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    eventName: 'Transfer',
+    onLogs(logs) {
+      for (const log of logs) {
+        const { from, to, value } = log.args
+        console.log(`转账：${from} -&gt; ${to}，金额：${value}`)
+        // 这里可以更新全局状态、弹窗通知等
+      }
+    },
+  })
+
+  return null // 只做监听，不渲染
+}
+</code></pre>
+<p>把它放到 App 中，转账后立即就能看到控制台输出。你还可以把转账记录存入状态并渲染到页面，这和上一篇 <code>ValueChanged</code> 类似，不再赘述。</p>
+<hr />
+<h2 id="6--transfer-">6. 后端：索引所有 Transfer 事件</h2>
+<p>前端监听的是实时数据，历史记录需要后端保存。</p>
+<h3 id="61-">6.1 数据库准备</h3>
+<p>沿用之前的 SQLite 方案，新建表：</p>
+<pre><code class="language-ts">// backend/src/db.ts
+db.exec(`
+  CREATE TABLE IF NOT EXISTS transfer_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    blockNumber INTEGER NOT NULL,
+    transactionHash TEXT NOT NULL,
+    fromAddress TEXT NOT NULL,
+    toAddress TEXT NOT NULL,
+    value TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+  )
+`)
+
+export function insertTransferEvent(...) // 类似上篇
+export function getTransfers(limit = 50) { ... }
+</code></pre>
+<h3 id="62-">6.2 事件监听器</h3>
+<p>使用 <code>viem</code> 的 <code>watchContractEvent</code>，监听 <code>Transfer</code>：</p>
+<pre><code class="language-ts">import { createPublicClient, http, erc20Abi } from 'viem'
+import { sepolia } from 'viem/chains'
+
+const client = createPublicClient({ chain: sepolia, transport: http() })
+const TOKEN_ADDRESS = '0xA1B2C3...'
+
+export function startTransferListener() {
+  client.watchContractEvent({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    eventName: 'Transfer',
+    onLogs(logs) {
+      for (const log of logs) {
+        const { from, to, value } = log.args
+        if (!from || !to) continue
+        insertTransferEvent(
+          log.blockNumber,
+          log.transactionHash,
+          from,
+          to,
+          value.toString(),
+          Math.floor(Date.now() / 1000)
+        )
+      }
+    },
+  })
+}
+</code></pre>
+<h3 id="63--api">6.3 提供转账历史 API</h3>
+<p>在 <code>backend/src/index.ts</code> 中加入：</p>
+<pre><code class="language-ts">app.get('/transfers', (req, res) =&gt; {
+  const transfers = getTransfers(100)
+  res.json(transfers)
+})
+
+// 启动监听器
+startTransferListener()
+</code></pre>
+<p>为了保护 API，你可以像第一篇那样加上 JWT 认证中间件。</p>
+<hr />
+<h2 id="7-">7. 前端集成历史接口</h2>
+<p>创建 <code>TransferHistory.tsx</code>：</p>
+<pre><code class="language-tsx">import { useEffect, useState } from 'react'
+
+interface TransferRecord {
+  fromAddress: string
+  toAddress: string
+  value: string
+  transactionHash: string
+}
+
+export default function TransferHistory() {
+  const [list, setList] = useState&lt;TransferRecord[]&gt;([])
+
+  useEffect(() =&gt; {
+    fetch('http://localhost:3001/transfers')
+      .then(res =&gt; res.json())
+      .then(setList)
+  }, [])
+
+  return (
+    &lt;div&gt;
+      &lt;h3&gt; 转账记录&lt;/h3&gt;
+      &lt;ul&gt;
+        {list.map((t, i) =&gt; (
+          &lt;li key={i}&gt;
+            {t.fromAddress.slice(0, 6)}... → {t.toAddress.slice(0, 6)}... | 金额：{t.value}
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<p>在 App 中使用 <code>&lt;TransferHistory /&gt;</code>。</p>
+<hr />
+<h2 id="8-">8. 运行与测试</h2>
+<ol>
+<li>确保后端已启动：<code>cd backend &amp;&amp; npx tsx src/index.ts</code></li>
+<li>前端：<code>cd frontend &amp;&amp; pnpm dev</code></li>
+<li>用 MetaMask 连接，确认你在 Sepolia 上。</li>
+<li>你可以向自己另一地址转账少量 MTK，观察前端实时输出和后端数据库的更新。</li>
+<li>刷新页面，历史记录依然存在。</li>
+</ol>
+<hr />
+<h2 id="9-">9. 延伸思考</h2>
+<ul>
+<li><strong>精度处理</strong>：建议读取 <code>decimals()</code> 后动态格式化，不要硬编码 18。</li>
+<li><strong>批量查询</strong>：对于多个代币或大量数据，可使用 <code>useReadContracts</code> 或后端分页。</li>
+<li><strong>授权风险</strong>：生产环境中避免无限授权（approve max），UI 中应提示用户设置合理额度。</li>
+<li><strong>索引效率</strong>：当事件海量增长时，可考虑使用 The Graph 或自建专用索引器。</li>
+</ul>
+<hr />
+<h2 id="10-">10. 总结</h2>
+<p>通过本教程，你成功地在全栈 DApp 中集成了 ERC-20 代币：</p>
+<ul>
+<li>部署自己的测试代币</li>
+<li>用 <code>useReadContract</code> 查询余额、符号</li>
+<li>使用 <code>writeContract</code> 实现转账与授权</li>
+<li>监听 <code>Transfer</code> 事件实现实时通知</li>
+<li>后端索引事件并提供查询 API</li>
+</ul>
+]]></description>
+    </item>
+    <item>
+      <title>Web3 全栈开发实战：合约事件监听与实时更新</title>
+      <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/</guid>
+      <pubDate>Sat, 16 May 2026 13:44:50 +0800</pubDate>
+      <description><![CDATA[<p>在上一篇文章中，我们搭建了一个完整的钱包集成流程，并且实现了对 <code>ValueStore</code> 合约的读写操作。但是，仅仅通过手动点击按钮去查询链上状态，并不够“实时”。真正的 DApp 通常需要<strong>主动监听链上事件</strong>，第一时间更新 UI，同时后端也需要索引这些事件来构建历史记录和数据分析。</p>
+<p>今天这篇教程，我们就以 <code>ValueStore</code> 合约的 <code>ValueChanged</code> 事件为例，一步步完成：</p>
+<ul>
+<li>前端使用 <code>useWatchContractEvent</code> 实时接收事件并更新页面</li>
+<li>后端使用 <code>viem</code> 的 <code>watchContractEvent</code> 将事件持久化到 SQLite</li>
+<li>前端通过 REST API 查询历史事件，实现数据回放</li>
+</ul>
+<p>全文代码可直接运行，你可以在上一篇项目的基础上继续添加。</p>
+<hr />
+<h2 id="1-">1. 为什么需要监听合约事件</h2>
+<p>智能合约的 <code>event</code> 是日志（Log）的一种高层次封装。每当合约状态发生重要变更（比如转账、参数修改），就会触发相应的事件。监听事件有三大好处：</p>
+<ol>
+<li><strong>实时性</strong>：不用轮询，一旦上链就能立刻知道。</li>
+<li><strong>完整性</strong>：可以回溯所有历史事件，构建可靠的数据索引。</li>
+<li><strong>解耦</strong>：前端/后端只关心事件，不需要知道触发交易的具体逻辑。</li>
+</ol>
+<p>我们将使用 <code>ValueChanged(uint256 newValue)</code> 事件，它由 <code>setValue</code> 触发，携带新值。</p>
+<hr />
+<h2 id="2-">2. 前端：实时监听事件</h2>
+<h3 id="21--abi">2.1 回顾合约与 ABI</h3>
+<p>确保你的 <code>frontend/src/contracts/valueStore.ts</code> 包含事件定义（上一篇已经加了）：</p>
+<pre><code class="language-ts">export const VALUE_STORE_ADDRESS = '0xYourContractAddress'
+
+export const VALUE_STORE_ABI = [
+  // ... 之前的函数定义
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, name: 'newValue', type: 'uint256' }],
+    name: 'ValueChanged',
+    type: 'event',
+  },
+] as const
+</code></pre>
+<h3 id="22--usewatchcontractevent">2.2 使用 <code>useWatchContractEvent</code></h3>
+<p>wagmi 提供了 <code>useWatchContractEvent</code> Hook，它底层封装了 viem 的 <code>watchContractEvent</code>，使用起来非常方便。我们创建一个新组件 <code>EventWatcher.tsx</code>：</p>
+<pre><code class="language-tsx">import { useWatchContractEvent, useAccount } from 'wagmi'
+import { useState } from 'react'
+import { VALUE_STORE_ADDRESS, VALUE_STORE_ABI } from './contracts/valueStore'
+import { parseAbiItem } from 'viem'
+
+function EventWatcher() {
+  const [latestValue, setLatestValue] = useState&lt;string&gt;('')
+  const [logs, setLogs] = useState&lt;{ newValue: string; txHash: string }[]&gt;([])
+
+  useWatchContractEvent({
+    address: VALUE_STORE_ADDRESS,
+    abi: VALUE_STORE_ABI,
+    eventName: 'ValueChanged',
+    onLogs(logs) {
+      for (const log of logs) {
+        // log.args 里包含事件参数
+        const newValue = log.args.newValue?.toString() ?? '0'
+        setLatestValue(newValue)
+        setLogs((prev) =&gt; [
+          { newValue, txHash: log.transactionHash },
+          ...prev,
+        ])
+      }
+    },
+  })
+
+  return (
+    &lt;div&gt;
+      &lt;h3&gt;📡 实时事件监听&lt;/h3&gt;
+      &lt;p&gt;最新值：{latestValue || '暂无'}&lt;/p&gt;
+      &lt;ul&gt;
+        {logs.slice(0, 5).map((log, i) =&gt; (
+          &lt;li key={i}&gt;
+            新值: {log.newValue} | 交易: {log.transactionHash.slice(0, 10)}...
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
+  )
+}
+
+export default EventWatcher
+</code></pre>
+<blockquote>
+<p><code>useWatchContractEvent</code> 会在组件挂载后开始监听新产生的区块，一旦匹配到指定事件，<code>onLogs</code> 回调就会被触发。它默认监听从当前区块开始的新日志，非常适合实时 UI 更新。</p>
+</blockquote>
+<h3 id="23--app">2.3 集成到 App</h3>
+<p>在 <code>App.tsx</code> 中引入 <code>EventWatcher</code>，放在 <code>ContractData</code> 组件旁边：</p>
+<pre><code class="language-tsx">import EventWatcher from './EventWatcher'
+
+// ...
+{isConnected &amp;&amp; (
+  &lt;&gt;
+    &lt;ContractData /&gt;
+    &lt;SetValue /&gt;
+    &lt;EventWatcher /&gt;
+  &lt;/&gt;
+)}
+</code></pre>
+<p>现在，当你用 <code>setValue</code> 修改合约值后，<code>EventWatcher</code> 会几乎同步显示新的值，并且列出最近的事件记录。</p>
+<hr />
+<h2 id="3-">3. 后端：事件索引与持久化</h2>
+<p>前端实时监听很酷，但页面上只能看到监听之后的新事件，历史记录无法获取。我们需要一个<strong>后端事件监听器</strong>，把每次事件都存进数据库。</p>
+<h3 id="31-">3.1 初始化后端项目</h3>
+<p>我们复用上一篇的 <code>backend</code> 项目，如果没有则需要先创建。安装额外依赖：</p>
+<pre><code class="language-bash">cd backend
+pnpm add better-sqlite3 viem
+pnpm add -D @types/better-sqlite3
+</code></pre>
+<h3 id="32-">3.2 创建数据库与事件存储</h3>
+<p>新建 <code>backend/src/db.ts</code>：</p>
+<pre><code class="language-ts">import Database from 'better-sqlite3'
+
+const db = new Database('events.db')
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS value_changed_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    blockNumber INTEGER NOT NULL,
+    transactionHash TEXT NOT NULL,
+    newValue TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+  )
+`)
+
+export function insertValueChangedEvent(
+  blockNumber: bigint,
+  transactionHash: string,
+  newValue: bigint,
+  timestamp: number
+) {
+  const stmt = db.prepare(`
+    INSERT INTO value_changed_events (blockNumber, transactionHash, newValue, timestamp)
+    VALUES (?, ?, ?, ?)
+  `)
+  stmt.run(Number(blockNumber), transactionHash, newValue.toString(), timestamp)
+}
+
+export function getAllEvents(limit = 50) {
+  return db.prepare('SELECT * FROM value_changed_events ORDER BY blockNumber DESC LIMIT ?').all(limit)
+}
+</code></pre>
+<h3 id="33-">3.3 编写事件监听器</h3>
+<p>新建 <code>backend/src/eventListener.ts</code>：</p>
+<pre><code class="language-ts">import { createPublicClient, http, parseAbiItem } from 'viem'
+import { sepolia } from 'viem/chains'
+import { VALUE_STORE_ADDRESS, VALUE_STORE_ABI } from './contracts' // 需共享 ABI 和地址
+import { insertValueChangedEvent } from './db'
+
+// 建议将合约配置提取到共享模块，这里假设已经存在
+const client = createPublicClient({
+  chain: sepolia,
+  transport: http(),
+})
+
+export function startEventListener() {
+  console.log('启动事件监听...')
+
+  client.watchContractEvent({
+    address: VALUE_STORE_ADDRESS,
+    abi: VALUE_STORE_ABI,
+    eventName: 'ValueChanged',
+    onLogs(logs) {
+      for (const log of logs) {
+        const { blockNumber, transactionHash, args } = log
+        if (!args.newValue) continue
+
+        insertValueChangedEvent(
+          blockNumber,
+          transactionHash,
+          args.newValue,
+          Math.floor(Date.now() / 1000)
+        )
+        console.log(`已存储事件：${transactionHash} -&gt; ${args.newValue}`)
+      }
+    },
+  })
+}
+</code></pre>
+<blockquote>
+<p>这里我们用 <code>client.watchContractEvent</code> 代替前端版本，因为它不依赖 React，可以直接在 Node 环境长期运行。</p>
+</blockquote>
+<h3 id="34--api">3.4 提供查询 API</h3>
+<p>在 <code>backend/src/index.ts</code> 中加入获取历史事件的接口：</p>
+<pre><code class="language-ts">import { getAllEvents } from './db'
+import { startEventListener } from './eventListener'
+
+// ... 原有代码 ...
+
+app.get('/events', (req, res) =&gt; {
+  const events = getAllEvents()
+  res.json(events)
+})
+
+// 启动事件监听器（只启动一次）
+startEventListener()
+
+app.listen(3001, () =&gt; {
+  console.log('后端运行在 http://localhost:3001')
+})
+</code></pre>
+<h3 id="35-">3.5 共享合约配置</h3>
+<p>为了让前端和后端共享 <code>VALUE_STORE_ADDRESS</code> 和 <code>VALUE_STORE_ABI</code>，最好把它们放到一个公共包里。简单的做法是：在项目根目录创建 <code>packages/contracts</code> 并导出，或者直接在 <code>backend</code> 里复制一份。这里为了简便，我们在 <code>backend/src/contracts.ts</code> 中复制相同的配置：</p>
+<pre><code class="language-ts">export const VALUE_STORE_ADDRESS = '0xYourContractAddress'
+
+export const VALUE_STORE_ABI = [...] // 与前端保持一致
+</code></pre>
+<hr />
+<h2 id="4-">4. 前端集成历史事件接口</h2>
+<p>现在前端可以通过 API 获取所有历史事件，补全数据展示。</p>
+<h3 id="41-">4.1 创建历史事件组件</h3>
+<pre><code class="language-tsx">import { useEffect, useState } from 'react'
+
+interface EventRecord {
+  blockNumber: number
+  transactionHash: string
+  newValue: string
+  timestamp: number
+}
+
+function EventHistory() {
+  const [events, setEvents] = useState&lt;EventRecord[]&gt;([])
+
+  useEffect(() =&gt; {
+    fetch('http://localhost:3001/events')
+      .then(res =&gt; res.json())
+      .then(setEvents)
+  }, [])
+
+  return (
+    &lt;div&gt;
+      &lt;h3&gt; 历史事件（来自后端）&lt;/h3&gt;
+      &lt;ul&gt;
+        {events.map((e) =&gt; (
+          &lt;li key={e.transactionHash}&gt;
+            块 {e.blockNumber} - 值 {e.newValue} ({new Date(e.timestamp * 1000).toLocaleString()})
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
+  )
+}
+
+export default EventHistory
+</code></pre>
+<h3 id="42-">4.2 添加到页面</h3>
+<p>在 <code>App.tsx</code> 中引入：</p>
+<pre><code class="language-tsx">import EventHistory from './EventHistory'
+
+// ...
+&lt;EventHistory /&gt;
+</code></pre>
+<p>现在，前端同时拥有了<strong>实时推送</strong>（<code>EventWatcher</code>）和<strong>历史回放</strong>（<code>EventHistory</code>），体验提升了一个档次。</p>
+<hr />
+<h2 id="5-">5. 运行与测试</h2>
+<ol>
+<li><strong>启动后端</strong>：<code>cd backend &amp;&amp; npx tsx src/index.ts</code></li>
+<li><strong>启动前端</strong>：<code>cd frontend &amp;&amp; pnpm dev</code></li>
+<li>打开 DApp，连接钱包，执行一次 <code>setValue</code> 操作。</li>
+<li>观察前端实时显示新值，刷新页面后历史事件依然可见。</li>
+</ol>
+<hr />
+<h2 id="6-">6. 优化与生产建议</h2>
+<ul>
+<li><strong>批量拉取历史</strong>：如果事件量很大，应该分页并实现懒加载。</li>
+<li><strong>WebSocket 推送</strong>：可以用 Socket.IO 将后端监听到的事件实时推送到前端，取代前端的直接监听，统一数据源。</li>
+<li><strong>错误重连</strong>：<code>watchContractEvent</code> 在 WebSocket 断开时会自动重试，但在 Node 环境中如果网络不稳定可以加上手动重试逻辑。</li>
+<li><strong>索引器服务</strong>：对于复杂业务，推荐使用 The Graph、Subsquid 或自建 Envio 索引器，它们提供了更强大的查询能力。</li>
+<li><strong>安全性</strong>：API 接口如果需要认证，记得加上上一篇实现的 JWT 验证。</li>
+</ul>
+<hr />
+<h2 id="7-">7. 总结</h2>
+<p>通过这篇文章，你学会了如何在 Web3 全栈应用中处理合约事件：</p>
+<ul>
+<li><strong>前端</strong>：使用 <code>useWatchContractEvent</code> 实时捕获链上日志，更新 UI。</li>
+<li><strong>后端</strong>：用 <code>viem</code> 建立独立的事件监听进程，将数据持久化到 SQLite，并提供查询接口。</li>
+<li><strong>数据流</strong>：实现了“链上事件 → 后端数据库 → 前端展示”的完整闭环。</li>
+</ul>
+]]></description>
+    </item>
     <item>
       <title>Web3 全栈开发实战：从钱包集成到签名验证</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhancong-qian-bao-ji-cheng-dao-qian-ming-yan-zheng/</link>

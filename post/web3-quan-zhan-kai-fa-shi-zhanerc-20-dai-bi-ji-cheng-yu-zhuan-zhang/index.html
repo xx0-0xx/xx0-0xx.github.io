@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<link rel="stylesheet" href="/styles/main.min.css">
+
+
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+
+
+<style>:root { --heatmap-color: #39d353; }</style>
+
+
+
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('flavor-theme');
+      var theme = saved || 'dark';
+      if (theme === 'light') {
+        document.documentElement.classList.add('theme-light');
+      }
+    } catch (e) { }
+  })();
+</script>
+  <meta name="generator" content="Gridea Pro 1.1.1">
+  <title>Web3 全栈开发实战：ERC-20 代币集成与转账 | Stariverse</title>
+  
+<meta property="og:title" content="Web3 全栈开发实战：ERC-20 代币集成与转账" />
+<meta property="og:type" content="article" />
+
+
+<meta name="description" content="在之前的文章中，我们完成了钱包连接、合约交互以及事件监听的完整闭环。今天，系列第三篇将聚焦 ERC-20 代币 —— 这是 DeFi 世界里最基础的资产标准。我们将从部署自己的测试代币开始，到前端查询余额、转账、授权，再到后端索引所有转账记录，一气呵成。 学完这篇文章，你将掌握： 用 OpenZeppelin 部署 ERC-20 合约 在前端查询代币信息（符号、精&amp;hellip;">
+<meta name="keywords" content="xx0-0xx,三七不是中药,Stariverse">
+<link rel="canonical" href="https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Web3 全栈开发实战：ERC-20 代币集成与转账","url":"https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/","description":"在之前的文章中，我们完成了钱包连接、合约交互以及事件监听的完整闭环。今天，系列第三篇将聚焦 ERC-20 代币 —— 这是 DeFi 世界里最基础的资产标准。我们将从部署自己的测试代币开始，到前端查询余额、转账、授权，再到后端索引所有转账记录，一气呵成。 学完这篇文章，你将掌握： 用 OpenZeppelin 部署 ERC-20 合约 在前端查询代币信息（符号、精\u0026hellip;","datePublished":"2026-05-16T13:48:17+08:00","dateModified":"2026-05-16T13:48:17+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://www.xx0-0xx.space","name":"Stariverse","position":1},{"@type":"ListItem","item":"https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/","name":"Web3 全栈开发实战：ERC-20 代币集成与转账","position":2}]}</script>
+<meta property="og:title" content="Web3 全栈开发实战：ERC-20 代币集成与转账">
+<meta property="og:description" content="在之前的文章中，我们完成了钱包连接、合约交互以及事件监听的完整闭环。今天，系列第三篇将聚焦 ERC-20 代币 —— 这是 DeFi 世界里最基础的资产标准。我们将从部署自己的测试代币开始，到前端查询余额、转账、授权，再到后端索引所有转账记录，一气呵成。 学完这篇文章，你将掌握： 用 OpenZeppelin 部署 ERC-20 合约 在前端查询代币信息（符号、精&amp;hellip;">
+<meta property="og:url" content="https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Stariverse">
+<meta property="og:image" content="/images/avatar.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanerc-20-dai-bi-ji-cheng-yu-zhuan-zhang/">
+<meta name="twitter:title" content="Web3 全栈开发实战：ERC-20 代币集成与转账">
+<meta name="twitter:description" content="在之前的文章中，我们完成了钱包连接、合约交互以及事件监听的完整闭环。今天，系列第三篇将聚焦 ERC-20 代币 —— 这是 DeFi 世界里最基础的资产标准。我们将从部署自己的测试代币开始，到前端查询余额、转账、授权，再到后端索引所有转账记录，一气呵成。 学完这篇文章，你将掌握： 用 OpenZeppelin 部署 ERC-20 合约 在前端查询代币信息（符号、精&amp;hellip;">
+<meta name="twitter:image" content="/images/avatar.png">
+</head>
+<body class="flavor-theme">
+
+  <header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <div class="top-bar">
+
+      
+      <div class="top-bar__left">
+        
+        <a href="https://www.xx0-0xx.space" class="site-avatar-link" aria-label="返回首页">
+          <img class="site-avatar" src="https://cdn.jsdelivr.net/gh/xx0-0xx/xx0-0xx.github.io@main/images/theme/6d8d2067-54ee-41ae-9387-6abfb926698d.png" alt="Stariverse" />
+        </a>
+        
+        <a href="https://www.xx0-0xx.space" class="site-name-link">Stariverse</a>
+      </div>
+
+      
+      <nav class="top-bar__nav" id="sectionBar">
+        
+        
+        <a class="nav-item" href="/">首页</a>
+        
+        <a class="nav-item" href="/post">博客</a>
+        
+        <a class="nav-item" href="/memos">闪念</a>
+        
+        <a class="nav-item" href="/archives">归档</a>
+        
+        <a class="nav-item" href="/tags">标签</a>
+        
+        <a class="nav-item" href="/links">友链</a>
+        
+        <a class="nav-item" href="/post/about">关于</a>
+        
+        
+      </nav>
+
+      
+      <div class="top-bar__right">
+        <button class="btn-icon btn-search search-btn" id="btnSearch" type="button" aria-label="搜索">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-sun" id="themeToggleSun" type="button"
+          aria-label="切换到浅色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 1C12.5523 1 13 1.44772 13 2V4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4V2C11 1.44772 11.4477 1 12 1Z"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12ZM12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9Z"></path>
+            <path d="M13 20C13 19.4477 12.5523 19 12 19C11.4477 19 11 19.4477 11 20V22C11 22.5523 11.4477 23 12 23C12.5523 23 13 22.5523 13 22V20Z"></path>
+            <path d="M4.22282 4.22289C4.61335 3.83236 5.24651 3.83236 5.63704 4.22289L7.04704 5.63289C7.43756 6.02341 7.43756 6.65658 7.04704 7.0471C6.65651 7.43762 6.02335 7.43762 5.63283 7.0471L4.22282 5.6371C3.8323 5.24658 3.8323 4.61341 4.22282 4.22289Z"></path>
+            <path d="M18.367 16.9529C17.9765 16.5623 17.3433 16.5623 16.9528 16.9529C16.5623 17.3434 16.5623 17.9766 16.9528 18.3671L18.3628 19.7771C18.7533 20.1676 19.3865 20.1676 19.777 19.7771C20.1675 19.3866 20.1675 18.7534 19.777 18.3629L18.367 16.9529Z"></path>
+            <path d="M1 12C1 11.4477 1.44772 11 2 11H4C4.55228 11 5 11.4477 5 12C5 12.5523 4.55228 13 4 13H2C1.44772 13 1 12.5523 1 12Z"></path>
+            <path d="M20 11C19.4477 11 19 11.4477 19 12C19 12.5523 19.4477 13 20 13H22C22.5523 13 23 12.5523 23 12C23 11.4477 22.5523 11 22 11H20Z"></path>
+            <path d="M7.04704 16.9529C7.43756 17.3434 7.43756 17.9766 7.04704 18.3671L5.63704 19.7771C5.24651 20.1676 4.61335 20.1676 4.22282 19.7771C3.8323 19.3866 3.8323 18.7534 4.22283 18.3629L5.63283 16.9529C6.02335 16.5623 6.65651 16.5623 7.04704 16.9529Z"></path>
+            <path d="M19.777 5.6371C20.1675 5.24657 20.1675 4.61341 19.777 4.22289C19.3865 3.83236 18.7533 3.83236 18.3628 4.22289L16.9528 5.63289C16.5623 6.02341 16.5623 6.65658 16.9528 7.0471C17.3433 7.43762 17.9765 7.43762 18.367 7.0471L19.777 5.6371Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-moon" id="themeToggleMoon" type="button"
+          aria-label="切换到深色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 11.5955 21.7564 11.2309 21.3827 11.0761C21.009 10.9213 20.5789 11.0069 20.2929 11.2929C19.287 12.2988 17.9226 12.864 16.5 12.864C15.0774 12.864 13.713 12.2988 12.7071 11.2929C11.7012 10.287 11.136 8.92261 11.136 7.5C11.136 6.07739 11.7012 4.71304 12.7071 3.70711C12.9931 3.42111 13.0787 2.99099 12.9239 2.61732C12.7691 2.24364 12.4045 2 12 2ZM7.55544 5.34824C8.27036 4.87055 9.05353 4.51389 9.87357 4.28778C9.39271 5.27979 9.13604 6.37666 9.13604 7.5C9.13604 9.45304 9.91189 11.3261 11.2929 12.7071C12.6739 14.0881 14.547 14.864 16.5 14.864C17.6233 14.864 18.7202 14.6073 19.7122 14.1264C19.4861 14.9465 19.1295 15.7296 18.6518 16.4446C17.7727 17.7602 16.5233 18.7855 15.0615 19.391C13.5997 19.9965 11.9911 20.155 10.4393 19.8463C8.88743 19.5376 7.46197 18.7757 6.34315 17.6569C5.21447 16.538 4.4624 15.1126 4.15372 13.5607C3.84504 12.0089 4.00347 10.4003 4.60897 8.93853C5.21447 7.47672 6.23985 6.22729 7.55544 5.34824Z"></path>
+            <path d="M19 2C19.5523 2 20 2.44772 20 3V4H21C21.5523 4 22 4.44772 22 5C22 5.55228 21.5523 6 21 6H20V7C20 7.55228 19.5523 8 19 8C18.4477 8 18 7.55228 18 7V6H17C16.4477 6 16 5.55228 16 5C16 4.44772 16.4477 4 17 4H18V3C18 2.44772 18.4477 2 19 2Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon btn-nav-toggle mobile-only" id="btnNavToggle" type="button" aria-label="切换导航">
+          <div class="hamburger" id="hamburger">
+            <span class="hamburger__line hamburger__line--top"></span>
+            <span class="hamburger__line hamburger__line--bottom"></span>
+          </div>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+
+<div class="header-spacer"></div>
+
+<script>
+(function(){
+  var btn = document.getElementById('btnNavToggle');
+  var nav = document.getElementById('sectionBar');
+  var hamburger = document.getElementById('hamburger');
+  if (btn && nav) {
+    btn.addEventListener('click', function(){
+      nav.classList.toggle('top-bar__nav--open');
+      if (hamburger) hamburger.classList.toggle('is-active');
+    });
+    nav.querySelectorAll('.nav-item').forEach(function(item){
+      item.addEventListener('click', function(){
+        nav.classList.remove('top-bar__nav--open');
+        if (hamburger) hamburger.classList.remove('is-active');
+      });
+    });
+  }
+
+  var root = document.documentElement;
+  var applyTheme = function(theme, persist){
+    if (theme === 'light') {
+      root.classList.add('theme-light');
+    } else {
+      root.classList.remove('theme-light');
+    }
+    if (persist) {
+      try { localStorage.setItem('flavor-theme', theme); } catch (e) {}
+    }
+  };
+  document.querySelectorAll('.theme-toggle').forEach(function(el){
+    el.addEventListener('click', function(){
+      applyTheme(root.classList.contains('theme-light') ? 'dark' : 'light', true);
+    });
+  });
+})();
+</script>
+
+  <main class="site-main" role="main">
+    
+<article class="article-container">
+  <header class="article-header">
+    <h1 class="article-title">Web3 全栈开发实战：ERC-20 代币集成与转账</h1>
+    <div class="article-meta">
+      
+      <span class="article-meta__item">2026-05-16</span>
+      
+      <span class="article-meta__sep">·</span>
+      <span class="article-meta__item">15 分钟阅读</span>
+      
+    </div>
+    
+  </header>
+
+  
+
+  <div class="article-content">
+    <p>在之前的文章中，我们完成了钱包连接、合约交互以及事件监听的完整闭环。今天，系列第三篇将聚焦 <strong>ERC-20 代币</strong> —— 这是 DeFi 世界里最基础的资产标准。我们将从部署自己的测试代币开始，到前端查询余额、转账、授权，再到后端索引所有转账记录，一气呵成。</p>
+<p>学完这篇文章，你将掌握：</p>
+<ul>
+<li>用 OpenZeppelin 部署 ERC-20 合约</li>
+<li>在前端查询代币信息（符号、精度、余额）</li>
+<li>实现代币转账与授权转账（Approve + TransferFrom）</li>
+<li>实时监听 Transfer 事件并同步 UI</li>
+<li>后端持久化转账记录并开放 API</li>
+</ul>
+<p>所有代码依然基于 React + wagmi + viem + Node.js。</p>
+<hr />
+<h2 id="1-">1. 部署一个测试代币</h2>
+<p>你需要一个自己的 ERC-20 代币来练习。打开 <a href="https://remix.ethereum.org/">Remix IDE</a>，创建 <code>MyToken.sol</code>：</p>
+<pre><code class="language-solidity">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import &quot;@openzeppelin/contracts/token/ERC20/ERC20.sol&quot;;
+
+contract MyToken is ERC20 {
+    constructor() ERC20(&quot;MyToken&quot;, &quot;MTK&quot;) {
+        _mint(msg.sender, 1000000 * 10 ** decimals());
+    }
+}
+</code></pre>
+<ul>
+<li>编译后，在 “Deploy &amp; run transactions” 中选择 <strong>Injected Provider - MetaMask</strong>，网络切换到 <strong>Sepolia</strong>。</li>
+<li>点击 Deploy，确认交易。</li>
+<li>部署成功后，复制合约地址，例如 <code>0xA1B2C3...</code>，后面会频繁用到。</li>
+</ul>
+<hr />
+<h2 id="2-">2. 前端：读取代币信息与余额</h2>
+<h3 id="21-">2.1 共享代币地址</h3>
+<p>新建 <code>frontend/src/contracts/token.ts</code>：</p>
+<pre><code class="language-ts">export const TOKEN_ADDRESS = '0xA1B2C3...' // 替换为你的合约地址
+</code></pre>
+<h3 id="22--erc20abi">2.2 使用 erc20Abi</h3>
+<p>viem 内置了完整的 ERC-20 ABI，我们直接导入：</p>
+<pre><code class="language-tsx">import { erc20Abi } from 'viem'
+import { useReadContract, useAccount } from 'wagmi'
+import { TOKEN_ADDRESS } from './contracts/token'
+import { formatUnits } from 'viem'
+
+function TokenInfo() {
+  const { address } = useAccount()
+
+  const { data: symbol } = useReadContract({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'symbol',
+  })
+
+  const { data: decimals } = useReadContract({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'decimals',
+  })
+
+  const { data: balance } = useReadContract({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+  })
+
+  const formattedBalance = balance !== undefined &amp;&amp; decimals !== undefined
+    ? formatUnits(balance, decimals)
+    : '0'
+
+  return (
+    &lt;div&gt;
+      &lt;p&gt;代币：{symbol?.toString()}&lt;/p&gt;
+      &lt;p&gt;精度：{decimals?.toString()}&lt;/p&gt;
+      &lt;p&gt;余额：{formattedBalance}&lt;/p&gt;
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<p>记得在 <code>App.tsx</code> 中引入 <code>&lt;TokenInfo /&gt;</code>。</p>
+<hr />
+<h2 id="3-">3. 前端：实现代币转账</h2>
+<p>转账就是调用 <code>transfer(to, amount)</code>。我们需要一个输入框和发送按钮：</p>
+<pre><code class="language-tsx">import { useState } from 'react'
+import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { erc20Abi, parseUnits } from 'viem'
+import { TOKEN_ADDRESS } from './contracts/token'
+
+function TransferToken() {
+  const [to, setTo] = useState('')
+  const [amount, setAmount] = useState('')
+  const { data: hash, writeContract } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({ hash })
+
+  const handleTransfer = () =&gt; {
+    if (!to || !amount) return
+    writeContract({
+      address: TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'transfer',
+      args: [to as `0x${string}`, parseUnits(amount, 18)], // 假设 18 精度
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;h4&gt;转账 MTK&lt;/h4&gt;
+      &lt;input placeholder=&quot;接收地址&quot; value={to} onChange={(e) =&gt; setTo(e.target.value)} /&gt;
+      &lt;input placeholder=&quot;数量&quot; value={amount} onChange={(e) =&gt; setAmount(e.target.value)} /&gt;
+      &lt;button onClick={handleTransfer} disabled={isConfirming}&gt;
+        {isConfirming ? '确认中...' : '发送'}
+      &lt;/button&gt;
+      {hash &amp;&amp; &lt;p&gt;交易哈希：{hash}&lt;/p&gt;}
+      {isConfirmed &amp;&amp; &lt;p style={{ color: 'green' }}&gt; 转账成功！&lt;/p&gt;}
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<blockquote>
+<p>注意：真实项目中精度可以通过 <code>useReadContract</code> 获取，这里简化为 18。</p>
+</blockquote>
+<hr />
+<h2 id="4-">4. 前端：授权与授权转账</h2>
+<p>有时 DApp 需要代表用户转移代币（例如去中心化交易所）。这要求用户先调用 <code>approve(spender, amount)</code>，然后合约再调用 <code>transferFrom</code>。我们模拟一次授权给自己的另一个账户（或一个测试合约）。</p>
+<pre><code class="language-tsx">function ApproveAndTransferFrom() {
+  const [spender, setSpender] = useState('')
+  const [approveAmount, setApproveAmount] = useState('')
+  const [transferTo, setTransferTo] = useState('')
+  const [transferAmount, setTransferAmount] = useState('')
+
+  const { data: approveHash, writeContract: approve } = useWriteContract()
+  const { data: transferFromHash, writeContract: transferFrom } = useWriteContract()
+
+  const handleApprove = () =&gt; {
+    approve({
+      address: TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'approve',
+      args: [spender as `0x${string}`, parseUnits(approveAmount, 18)],
+    })
+  }
+
+  const handleTransferFrom = () =&gt; {
+    // 注意：这里调用者必须是 spender，且需要用户已经授权
+    transferFrom({
+      address: TOKEN_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'transferFrom',
+      args: [
+        '0xUserAddress', // from (代币持有者)
+        transferTo as `0x${string}`,
+        parseUnits(transferAmount, 18),
+      ],
+    })
+  }
+
+  return (
+    &lt;div&gt;
+      &lt;h4&gt;授权（Approve）&lt;/h4&gt;
+      &lt;input placeholder=&quot;被授权地址 (spender)&quot; value={spender} onChange={(e) =&gt; setSpender(e.target.value)} /&gt;
+      &lt;input placeholder=&quot;授权数量&quot; value={approveAmount} onChange={(e) =&gt; setApproveAmount(e.target.value)} /&gt;
+      &lt;button onClick={handleApprove}&gt;授权&lt;/button&gt;
+      {approveHash &amp;&amp; &lt;p&gt;授权交易：{approveHash}&lt;/p&gt;}
+
+      &lt;h4&gt;授权转账（TransferFrom）&lt;/h4&gt;
+      &lt;input placeholder=&quot;接收地址&quot; value={transferTo} onChange={(e) =&gt; setTransferTo(e.target.value)} /&gt;
+      &lt;input placeholder=&quot;数量&quot; value={transferAmount} onChange={(e) =&gt; setTransferAmount(e.target.value)} /&gt;
+      &lt;button onClick={handleTransferFrom}&gt;授权转账&lt;/button&gt;
+      {transferFromHash &amp;&amp; &lt;p&gt;转账交易：{transferFromHash}&lt;/p&gt;}
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<blockquote>
+<p>实际使用时，<code>from</code> 地址应自动取当前连接的钱包地址，并且你可能需要先调用 <code>approve</code> 后再 <code>transferFrom</code>。这里展示两个独立按钮方便演示。</p>
+</blockquote>
+<hr />
+<h2 id="5--transfer-">5. 前端：实时监听 Transfer 事件</h2>
+<p>代币转账和授权都会触发 <code>Transfer</code> 事件。我们用它来更新 UI，无需手动刷新余额。</p>
+<pre><code class="language-tsx">import { useWatchContractEvent } from 'wagmi'
+import { parseAbiItem } from 'viem'
+import { TOKEN_ADDRESS } from './contracts/token'
+import { erc20Abi } from 'viem'
+
+function TransferWatcher() {
+  useWatchContractEvent({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    eventName: 'Transfer',
+    onLogs(logs) {
+      for (const log of logs) {
+        const { from, to, value } = log.args
+        console.log(`转账：${from} -&gt; ${to}，金额：${value}`)
+        // 这里可以更新全局状态、弹窗通知等
+      }
+    },
+  })
+
+  return null // 只做监听，不渲染
+}
+</code></pre>
+<p>把它放到 App 中，转账后立即就能看到控制台输出。你还可以把转账记录存入状态并渲染到页面，这和上一篇 <code>ValueChanged</code> 类似，不再赘述。</p>
+<hr />
+<h2 id="6--transfer-">6. 后端：索引所有 Transfer 事件</h2>
+<p>前端监听的是实时数据，历史记录需要后端保存。</p>
+<h3 id="61-">6.1 数据库准备</h3>
+<p>沿用之前的 SQLite 方案，新建表：</p>
+<pre><code class="language-ts">// backend/src/db.ts
+db.exec(`
+  CREATE TABLE IF NOT EXISTS transfer_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    blockNumber INTEGER NOT NULL,
+    transactionHash TEXT NOT NULL,
+    fromAddress TEXT NOT NULL,
+    toAddress TEXT NOT NULL,
+    value TEXT NOT NULL,
+    timestamp INTEGER NOT NULL
+  )
+`)
+
+export function insertTransferEvent(...) // 类似上篇
+export function getTransfers(limit = 50) { ... }
+</code></pre>
+<h3 id="62-">6.2 事件监听器</h3>
+<p>使用 <code>viem</code> 的 <code>watchContractEvent</code>，监听 <code>Transfer</code>：</p>
+<pre><code class="language-ts">import { createPublicClient, http, erc20Abi } from 'viem'
+import { sepolia } from 'viem/chains'
+
+const client = createPublicClient({ chain: sepolia, transport: http() })
+const TOKEN_ADDRESS = '0xA1B2C3...'
+
+export function startTransferListener() {
+  client.watchContractEvent({
+    address: TOKEN_ADDRESS,
+    abi: erc20Abi,
+    eventName: 'Transfer',
+    onLogs(logs) {
+      for (const log of logs) {
+        const { from, to, value } = log.args
+        if (!from || !to) continue
+        insertTransferEvent(
+          log.blockNumber,
+          log.transactionHash,
+          from,
+          to,
+          value.toString(),
+          Math.floor(Date.now() / 1000)
+        )
+      }
+    },
+  })
+}
+</code></pre>
+<h3 id="63--api">6.3 提供转账历史 API</h3>
+<p>在 <code>backend/src/index.ts</code> 中加入：</p>
+<pre><code class="language-ts">app.get('/transfers', (req, res) =&gt; {
+  const transfers = getTransfers(100)
+  res.json(transfers)
+})
+
+// 启动监听器
+startTransferListener()
+</code></pre>
+<p>为了保护 API，你可以像第一篇那样加上 JWT 认证中间件。</p>
+<hr />
+<h2 id="7-">7. 前端集成历史接口</h2>
+<p>创建 <code>TransferHistory.tsx</code>：</p>
+<pre><code class="language-tsx">import { useEffect, useState } from 'react'
+
+interface TransferRecord {
+  fromAddress: string
+  toAddress: string
+  value: string
+  transactionHash: string
+}
+
+export default function TransferHistory() {
+  const [list, setList] = useState&lt;TransferRecord[]&gt;([])
+
+  useEffect(() =&gt; {
+    fetch('http://localhost:3001/transfers')
+      .then(res =&gt; res.json())
+      .then(setList)
+  }, [])
+
+  return (
+    &lt;div&gt;
+      &lt;h3&gt; 转账记录&lt;/h3&gt;
+      &lt;ul&gt;
+        {list.map((t, i) =&gt; (
+          &lt;li key={i}&gt;
+            {t.fromAddress.slice(0, 6)}... → {t.toAddress.slice(0, 6)}... | 金额：{t.value}
+          &lt;/li&gt;
+        ))}
+      &lt;/ul&gt;
+    &lt;/div&gt;
+  )
+}
+</code></pre>
+<p>在 App 中使用 <code>&lt;TransferHistory /&gt;</code>。</p>
+<hr />
+<h2 id="8-">8. 运行与测试</h2>
+<ol>
+<li>确保后端已启动：<code>cd backend &amp;&amp; npx tsx src/index.ts</code></li>
+<li>前端：<code>cd frontend &amp;&amp; pnpm dev</code></li>
+<li>用 MetaMask 连接，确认你在 Sepolia 上。</li>
+<li>你可以向自己另一地址转账少量 MTK，观察前端实时输出和后端数据库的更新。</li>
+<li>刷新页面，历史记录依然存在。</li>
+</ol>
+<hr />
+<h2 id="9-">9. 延伸思考</h2>
+<ul>
+<li><strong>精度处理</strong>：建议读取 <code>decimals()</code> 后动态格式化，不要硬编码 18。</li>
+<li><strong>批量查询</strong>：对于多个代币或大量数据，可使用 <code>useReadContracts</code> 或后端分页。</li>
+<li><strong>授权风险</strong>：生产环境中避免无限授权（approve max），UI 中应提示用户设置合理额度。</li>
+<li><strong>索引效率</strong>：当事件海量增长时，可考虑使用 The Graph 或自建专用索引器。</li>
+</ul>
+<hr />
+<h2 id="10-">10. 总结</h2>
+<p>通过本教程，你成功地在全栈 DApp 中集成了 ERC-20 代币：</p>
+<ul>
+<li>部署自己的测试代币</li>
+<li>用 <code>useReadContract</code> 查询余额、符号</li>
+<li>使用 <code>writeContract</code> 实现转账与授权</li>
+<li>监听 <code>Transfer</code> 事件实现实时通知</li>
+<li>后端索引事件并提供查询 API</li>
+</ul>
+
+  </div>
+
+  
+  <nav class="post-nav">
+    
+    <div class="post-nav-card post-nav-card--empty">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">上一篇</span>
+        <span class="post-nav-card__empty-text">没有上一篇了~</span>
+      </div>
+    </div>
+    
+    
+    <a href="/post/web3-quan-zhan-kai-fa-shi-zhanhe-yue-shi-jian-jian-ting-yu-shi-shi-geng-xin/" class="post-nav-card post-nav-card--next">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">下一篇</span>
+        <span class="post-nav-card__title">Web3 全栈开发实战：合约事件监听与实时更新</span>
+      </div>
+      
+      <span class="post-nav-card__arrow">&rarr;</span>
+    </a>
+    
+  </nav>
+
+  
+  
+
+
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+  <div class="footer-inner">
+
+    
+    
+    <nav class="footer-nav" aria-label="页脚导航">
+      
+      <a class="footer-nav__link" href="/">首页</a>
+      
+      <a class="footer-nav__link" href="/post">博客</a>
+      
+      <a class="footer-nav__link" href="/memos">闪念</a>
+      
+      <a class="footer-nav__link" href="/archives">归档</a>
+      
+      <a class="footer-nav__link" href="/tags">标签</a>
+      
+      <a class="footer-nav__link" href="/links">友链</a>
+      
+      <a class="footer-nav__link" href="/post/about">关于</a>
+      
+    </nav>
+    
+
+    
+    <div class="footer-social">
+      
+      <a class="footer-social__link" href="xx0-0xx" target="_blank" rel="noopener noreferrer"
+        aria-label="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+        </svg>
+      </a>
+      
+      
+      
+      <a class="footer-social__link" href="/feed.xml" aria-label="RSS">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.18 15.64a2.18 2.18 0 110 4.36 2.18 2.18 0 010-4.36zM4 4.44A15.56 15.56 0 0119.56 20h-2.83A12.73 12.73 0 004 7.27V4.44zm0 5.66a9.9 9.9 0 019.9 9.9h-2.83A7.07 7.07 0 004 12.93V10.1z"/>
+        </svg>
+      </a>
+    </div>
+
+    
+    <div class="footer-copyright">
+      <p>&copy; 2026 Stariverse. All rights reserved.</p>
+    </div>
+
+    
+    
+    <div class="footer-custom">
+      Stariverse
+    </div>
+    
+
+    
+    <div class="footer-powered">
+      <span>Powered by <a href="https://gridea.pro" target="_blank" rel="noopener noreferrer">Gridea Pro</a></span>
+    </div>
+
+  </div>
+</footer>
+
+  
+  <div class="search-overlay" id="searchOverlay" style="display:none;">
+  <div class="search-modal">
+    <div class="search-header">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索文章..." autocomplete="off" />
+      <span class="search-kbd">&#8984;K</span>
+      <button class="search-close" id="searchClose" type="button" aria-label="关闭搜索">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<script src="/scripts/search.js"></script>
+  
+
+  
+
+  
+
+  
+
+<script>console.log("\n%c ✦ Gridea Pro v1.1.1 %c · Theme: flavor-theme v1.0.0 · https://gridea.pro %c\n","color:#fadfa3;background:#111111;padding:9px 14px;border-radius:4px 0 0 4px;font-weight:500;font-size:12px","color:#e05c00;background:#fff3ec;padding:9px 14px;border-radius:0 4px 4px 0;font-size:11px","")</script>
+</body>
+</html>
