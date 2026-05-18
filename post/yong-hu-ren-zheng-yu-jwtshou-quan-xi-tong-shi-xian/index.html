@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<link rel="stylesheet" href="/styles/main.min.css">
+
+
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+
+
+<style>:root { --heatmap-color: #39d353; }</style>
+
+
+
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('flavor-theme');
+      var theme = saved || 'dark';
+      if (theme === 'light') {
+        document.documentElement.classList.add('theme-light');
+      }
+    } catch (e) { }
+  })();
+</script>
+  <meta name="generator" content="Gridea Pro 1.1.1">
+  <title>用户认证与JWT授权系统实现 | Stariverse</title>
+  
+<meta property="og:title" content="用户认证与JWT授权系统实现" />
+<meta property="og:type" content="article" />
+
+
+<meta name="description" content="在上一篇文章中，我们完成了RAG系统的深度优化和多会话支持，现在我们的知识库系统已经具备了优秀的回答质量和用户体验。但目前系统是完全开放的，任何人都可以访问和操作，这在企业环境中是不可接受的。这篇文章，我们将实现完整的用户认证与JWT授权系统，为系统添加安全防护，确保只有授权用户才能访问和使用知识库。 摘要 理解JWT认证的核心原理与优势 掌握FastAPI中JWT认证的实&amp;hellip;">
+<meta name="keywords" content="xx0-0xx,三七不是中药,Stariverse">
+<link rel="canonical" href="https://www.xx0-0xx.space/post/yong-hu-ren-zheng-yu-jwtshou-quan-xi-tong-shi-xian/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"用户认证与JWT授权系统实现","url":"https://www.xx0-0xx.space/post/yong-hu-ren-zheng-yu-jwtshou-quan-xi-tong-shi-xian/","description":"在上一篇文章中，我们完成了RAG系统的深度优化和多会话支持，现在我们的知识库系统已经具备了优秀的回答质量和用户体验。但目前系统是完全开放的，任何人都可以访问和操作，这在企业环境中是不可接受的。这篇文章，我们将实现完整的用户认证与JWT授权系统，为系统添加安全防护，确保只有授权用户才能访问和使用知识库。 摘要 理解JWT认证的核心原理与优势 掌握FastAPI中JWT认证的实\u0026hellip;","datePublished":"2026-04-07T20:36:00+08:00","dateModified":"2026-04-07T20:36:00+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://www.xx0-0xx.space","name":"Stariverse","position":1},{"@type":"ListItem","item":"https://www.xx0-0xx.space/post/yong-hu-ren-zheng-yu-jwtshou-quan-xi-tong-shi-xian/","name":"用户认证与JWT授权系统实现","position":2}]}</script>
+<meta property="og:title" content="用户认证与JWT授权系统实现">
+<meta property="og:description" content="在上一篇文章中，我们完成了RAG系统的深度优化和多会话支持，现在我们的知识库系统已经具备了优秀的回答质量和用户体验。但目前系统是完全开放的，任何人都可以访问和操作，这在企业环境中是不可接受的。这篇文章，我们将实现完整的用户认证与JWT授权系统，为系统添加安全防护，确保只有授权用户才能访问和使用知识库。 摘要 理解JWT认证的核心原理与优势 掌握FastAPI中JWT认证的实&amp;hellip;">
+<meta property="og:url" content="https://www.xx0-0xx.space/post/yong-hu-ren-zheng-yu-jwtshou-quan-xi-tong-shi-xian/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Stariverse">
+<meta property="og:image" content="/images/avatar.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://www.xx0-0xx.space/post/yong-hu-ren-zheng-yu-jwtshou-quan-xi-tong-shi-xian/">
+<meta name="twitter:title" content="用户认证与JWT授权系统实现">
+<meta name="twitter:description" content="在上一篇文章中，我们完成了RAG系统的深度优化和多会话支持，现在我们的知识库系统已经具备了优秀的回答质量和用户体验。但目前系统是完全开放的，任何人都可以访问和操作，这在企业环境中是不可接受的。这篇文章，我们将实现完整的用户认证与JWT授权系统，为系统添加安全防护，确保只有授权用户才能访问和使用知识库。 摘要 理解JWT认证的核心原理与优势 掌握FastAPI中JWT认证的实&amp;hellip;">
+<meta name="twitter:image" content="/images/avatar.png">
+</head>
+<body class="flavor-theme">
+
+  <header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <div class="top-bar">
+
+      
+      <div class="top-bar__left">
+        
+        <a href="https://www.xx0-0xx.space" class="site-avatar-link" aria-label="返回首页">
+          <img class="site-avatar" src="https://cdn.jsdelivr.net/gh/xx0-0xx/xx0-0xx.github.io@main/images/theme/6d8d2067-54ee-41ae-9387-6abfb926698d.png" alt="Stariverse" />
+        </a>
+        
+        <a href="https://www.xx0-0xx.space" class="site-name-link">Stariverse</a>
+      </div>
+
+      
+      <nav class="top-bar__nav" id="sectionBar">
+        
+        
+        <a class="nav-item" href="/">首页</a>
+        
+        <a class="nav-item" href="/post">博客</a>
+        
+        <a class="nav-item" href="/memos">闪念</a>
+        
+        <a class="nav-item" href="/archives">归档</a>
+        
+        <a class="nav-item" href="/tags">标签</a>
+        
+        <a class="nav-item" href="/links">友链</a>
+        
+        <a class="nav-item" href="/post/about">关于</a>
+        
+        
+      </nav>
+
+      
+      <div class="top-bar__right">
+        <button class="btn-icon btn-search search-btn" id="btnSearch" type="button" aria-label="搜索">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-sun" id="themeToggleSun" type="button"
+          aria-label="切换到浅色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 1C12.5523 1 13 1.44772 13 2V4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4V2C11 1.44772 11.4477 1 12 1Z"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12ZM12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9Z"></path>
+            <path d="M13 20C13 19.4477 12.5523 19 12 19C11.4477 19 11 19.4477 11 20V22C11 22.5523 11.4477 23 12 23C12.5523 23 13 22.5523 13 22V20Z"></path>
+            <path d="M4.22282 4.22289C4.61335 3.83236 5.24651 3.83236 5.63704 4.22289L7.04704 5.63289C7.43756 6.02341 7.43756 6.65658 7.04704 7.0471C6.65651 7.43762 6.02335 7.43762 5.63283 7.0471L4.22282 5.6371C3.8323 5.24658 3.8323 4.61341 4.22282 4.22289Z"></path>
+            <path d="M18.367 16.9529C17.9765 16.5623 17.3433 16.5623 16.9528 16.9529C16.5623 17.3434 16.5623 17.9766 16.9528 18.3671L18.3628 19.7771C18.7533 20.1676 19.3865 20.1676 19.777 19.7771C20.1675 19.3866 20.1675 18.7534 19.777 18.3629L18.367 16.9529Z"></path>
+            <path d="M1 12C1 11.4477 1.44772 11 2 11H4C4.55228 11 5 11.4477 5 12C5 12.5523 4.55228 13 4 13H2C1.44772 13 1 12.5523 1 12Z"></path>
+            <path d="M20 11C19.4477 11 19 11.4477 19 12C19 12.5523 19.4477 13 20 13H22C22.5523 13 23 12.5523 23 12C23 11.4477 22.5523 11 22 11H20Z"></path>
+            <path d="M7.04704 16.9529C7.43756 17.3434 7.43756 17.9766 7.04704 18.3671L5.63704 19.7771C5.24651 20.1676 4.61335 20.1676 4.22282 19.7771C3.8323 19.3866 3.8323 18.7534 4.22283 18.3629L5.63283 16.9529C6.02335 16.5623 6.65651 16.5623 7.04704 16.9529Z"></path>
+            <path d="M19.777 5.6371C20.1675 5.24657 20.1675 4.61341 19.777 4.22289C19.3865 3.83236 18.7533 3.83236 18.3628 4.22289L16.9528 5.63289C16.5623 6.02341 16.5623 6.65658 16.9528 7.0471C17.3433 7.43762 17.9765 7.43762 18.367 7.0471L19.777 5.6371Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-moon" id="themeToggleMoon" type="button"
+          aria-label="切换到深色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 11.5955 21.7564 11.2309 21.3827 11.0761C21.009 10.9213 20.5789 11.0069 20.2929 11.2929C19.287 12.2988 17.9226 12.864 16.5 12.864C15.0774 12.864 13.713 12.2988 12.7071 11.2929C11.7012 10.287 11.136 8.92261 11.136 7.5C11.136 6.07739 11.7012 4.71304 12.7071 3.70711C12.9931 3.42111 13.0787 2.99099 12.9239 2.61732C12.7691 2.24364 12.4045 2 12 2ZM7.55544 5.34824C8.27036 4.87055 9.05353 4.51389 9.87357 4.28778C9.39271 5.27979 9.13604 6.37666 9.13604 7.5C9.13604 9.45304 9.91189 11.3261 11.2929 12.7071C12.6739 14.0881 14.547 14.864 16.5 14.864C17.6233 14.864 18.7202 14.6073 19.7122 14.1264C19.4861 14.9465 19.1295 15.7296 18.6518 16.4446C17.7727 17.7602 16.5233 18.7855 15.0615 19.391C13.5997 19.9965 11.9911 20.155 10.4393 19.8463C8.88743 19.5376 7.46197 18.7757 6.34315 17.6569C5.21447 16.538 4.4624 15.1126 4.15372 13.5607C3.84504 12.0089 4.00347 10.4003 4.60897 8.93853C5.21447 7.47672 6.23985 6.22729 7.55544 5.34824Z"></path>
+            <path d="M19 2C19.5523 2 20 2.44772 20 3V4H21C21.5523 4 22 4.44772 22 5C22 5.55228 21.5523 6 21 6H20V7C20 7.55228 19.5523 8 19 8C18.4477 8 18 7.55228 18 7V6H17C16.4477 6 16 5.55228 16 5C16 4.44772 16.4477 4 17 4H18V3C18 2.44772 18.4477 2 19 2Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon btn-nav-toggle mobile-only" id="btnNavToggle" type="button" aria-label="切换导航">
+          <div class="hamburger" id="hamburger">
+            <span class="hamburger__line hamburger__line--top"></span>
+            <span class="hamburger__line hamburger__line--bottom"></span>
+          </div>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+
+<div class="header-spacer"></div>
+
+<script>
+(function(){
+  var btn = document.getElementById('btnNavToggle');
+  var nav = document.getElementById('sectionBar');
+  var hamburger = document.getElementById('hamburger');
+  if (btn && nav) {
+    btn.addEventListener('click', function(){
+      nav.classList.toggle('top-bar__nav--open');
+      if (hamburger) hamburger.classList.toggle('is-active');
+    });
+    nav.querySelectorAll('.nav-item').forEach(function(item){
+      item.addEventListener('click', function(){
+        nav.classList.remove('top-bar__nav--open');
+        if (hamburger) hamburger.classList.remove('is-active');
+      });
+    });
+  }
+
+  var root = document.documentElement;
+  var applyTheme = function(theme, persist){
+    if (theme === 'light') {
+      root.classList.add('theme-light');
+    } else {
+      root.classList.remove('theme-light');
+    }
+    if (persist) {
+      try { localStorage.setItem('flavor-theme', theme); } catch (e) {}
+    }
+  };
+  document.querySelectorAll('.theme-toggle').forEach(function(el){
+    el.addEventListener('click', function(){
+      applyTheme(root.classList.contains('theme-light') ? 'dark' : 'light', true);
+    });
+  });
+})();
+</script>
+
+  <main class="site-main" role="main">
+    
+<article class="article-container">
+  <header class="article-header">
+    <h1 class="article-title">用户认证与JWT授权系统实现</h1>
+    <div class="article-meta">
+      
+      <span class="article-meta__item">2026-04-07</span>
+      
+      <span class="article-meta__sep">·</span>
+      <span class="article-meta__item">48 分钟阅读</span>
+      
+    </div>
+    
+  </header>
+
+  
+
+  <div class="article-content">
+    <p>在上一篇文章中，我们完成了RAG系统的深度优化和多会话支持，现在我们的知识库系统已经具备了优秀的回答质量和用户体验。但目前系统是完全开放的，任何人都可以访问和操作，这在企业环境中是不可接受的。这篇文章，我们将实现完整的用户认证与JWT授权系统，为系统添加安全防护，确保只有授权用户才能访问和使用知识库。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解JWT认证的核心原理与优势</li>
+<li>掌握FastAPI中JWT认证的实现方法</li>
+<li>实现安全的密码加密与存储</li>
+<li>开发用户注册、登录和注销接口</li>
+<li>在前端实现登录状态管理与路由守卫</li>
+<li>为系统接口添加权限验证，保护敏感操作</li>
+</ul>
+<hr />
+<h2 id="1-jwt">1. 为什么需要用户认证与JWT？</h2>
+<h3 id="11-">1.1 开放系统的安全风险</h3>
+<p>目前我们的系统存在以下严重的安全问题：</p>
+<ul>
+<li>任何人都可以上传和删除文档</li>
+<li>任何人都可以访问所有知识库内容</li>
+<li>没有用户身份标识，无法追踪操作记录</li>
+<li>无法实现基于角色的权限控制</li>
+</ul>
+<p>在企业环境中，这些问题可能导致数据泄露、知识资产丢失和系统被滥用。因此，用户认证是构建生产级系统必不可少的一环。</p>
+<h3 id="12-">1.2 常见的认证方式对比</h3>
+<table>
+<thead>
+<tr>
+<th>认证方式</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Session-Cookie</td>
+<td>简单易用，服务器可控</td>
+<td>有状态，扩展性差，跨域问题</td>
+<td>传统单体应用</td>
+</tr>
+<tr>
+<td>JWT (JSON Web Token)</td>
+<td>无状态，扩展性好，跨域支持</td>
+<td>无法即时注销，token大小有限</td>
+<td>前后端分离应用，微服务架构</td>
+</tr>
+<tr>
+<td>OAuth 2.0</td>
+<td>安全，支持第三方登录</td>
+<td>实现复杂</td>
+<td>开放平台，第三方应用接入</td>
+</tr>
+</tbody>
+</table>
+<p>对于我们的前后端分离知识库系统，JWT是最佳选择。它具有无状态、易于扩展、支持跨域等优点，非常适合现代Web应用。</p>
+<h3 id="13-jwt">1.3 JWT的工作原理</h3>
+<p>JWT是一种紧凑的、URL安全的方式，用于在双方之间传递声明。它由三部分组成，用点(.)分隔：</p>
+<pre><code>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6ImFkbWluIiwiZXhwIjoxNzE2NzI4MDAwfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+</code></pre>
+<ul>
+<li><strong>Header（头部）</strong>：指定签名算法和令牌类型</li>
+<li><strong>Payload（载荷）</strong>：包含要传递的声明（用户ID、用户名、过期时间等）</li>
+<li><strong>Signature（签名）</strong>：使用密钥对头部和载荷进行签名，防止篡改</li>
+</ul>
+<p><strong>JWT认证流程</strong>：</p>
+<ol>
+<li>用户输入用户名和密码登录</li>
+<li>服务器验证用户名和密码，生成JWT token返回给客户端</li>
+<li>客户端将token存储在localStorage或sessionStorage中</li>
+<li>后续请求中，客户端在Authorization头中携带token</li>
+<li>服务器验证token的有效性，确认用户身份</li>
+<li>服务器处理请求并返回结果</li>
+</ol>
+<hr />
+<h2 id="2-">2. 后端认证系统实现</h2>
+<h3 id="21-">2.1 安装依赖</h3>
+<p>我们需要以下依赖来实现JWT认证：</p>
+<ul>
+<li><code>python-jose</code>：用于生成和验证JWT token</li>
+<li><code>passlib</code>：用于密码加密</li>
+<li><code>python-multipart</code>：用于处理表单数据</li>
+<li><code>sqlalchemy</code>：用于数据库操作</li>
+</ul>
+<pre><code class="language-bash">cd backend
+source venv/bin/activate  # Windows 使用 venv\Scripts\activate
+pip install python-jose[cryptography] passlib[bcrypt] sqlalchemy
+</code></pre>
+<h3 id="22-">2.2 数据库设计与模型</h3>
+<p>我们将使用SQLite作为开发环境的数据库，它不需要额外部署，非常适合开发。</p>
+<p>创建<code>database.py</code>：</p>
+<pre><code class="language-python">from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+SQLALCHEMY_DATABASE_URL = &quot;sqlite:///./knowledge_base.db&quot;
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={&quot;check_same_thread&quot;: False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+Base = declarative_base()
+</code></pre>
+<p>创建<code>models.py</code>，定义用户模型：</p>
+<pre><code class="language-python">from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from database import Base
+from datetime import datetime
+
+class User(Base):
+    __tablename__ = &quot;users&quot;
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+</code></pre>
+<p>创建<code>schemas.py</code>，定义Pydantic数据模型：</p>
+<pre><code class="language-python">from pydantic import BaseModel, EmailStr
+from datetime import datetime
+from typing import Optional
+
+class UserBase(BaseModel):
+    username: str
+    email: EmailStr
+    full_name: Optional[str] = None
+
+class UserCreate(UserBase):
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class User(UserBase):
+    id: int
+    is_active: bool
+    is_admin: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        orm_mode = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    user_id: Optional[int] = None
+    username: Optional[str] = None
+</code></pre>
+<h3 id="23-">2.3 安全工具函数</h3>
+<p>创建<code>security.py</code>，实现密码加密和JWT工具函数：</p>
+<pre><code class="language-python">from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+# 密码加密上下文
+pwd_context = CryptContext(schemes=[&quot;bcrypt&quot;], deprecated=&quot;auto&quot;)
+
+# JWT配置
+SECRET_KEY = os.getenv(&quot;JWT_SECRET_KEY&quot;, &quot;your-secret-key-here-please-change-in-production&quot;)
+ALGORITHM = &quot;HS256&quot;
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv(&quot;ACCESS_TOKEN_EXPIRE_MINUTES&quot;, &quot;30&quot;))
+
+def verify_password(plain_password: str, hashed_password: str) -&gt; bool:
+    &quot;&quot;&quot;验证密码是否正确&quot;&quot;&quot;
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -&gt; str:
+    &quot;&quot;&quot;生成密码哈希&quot;&quot;&quot;
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -&gt; str:
+    &quot;&quot;&quot;创建JWT访问令牌&quot;&quot;&quot;
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({&quot;exp&quot;: expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+</code></pre>
+<p>在<code>.env</code>文件中添加JWT配置：</p>
+<pre><code class="language-env">OPENAI_API_KEY=your-openai-api-key-here
+CHROMA_PERSIST_DIRECTORY=./chroma_db
+COHERE_API_KEY=your-cohere-api-key-here
+JWT_SECRET_KEY=your-strong-secret-key-here-keep-it-safe  # 新增
+ACCESS_TOKEN_EXPIRE_MINUTES=1440  # 24小时，新增
+</code></pre>
+<h3 id="24-">2.4 用户服务</h3>
+<p>创建<code>services/user_service.py</code>：</p>
+<pre><code class="language-python">from sqlalchemy.orm import Session
+from models import User
+from schemas import UserCreate
+from security import get_password_hash, verify_password
+
+class UserService:
+    def get_user_by_id(self, db: Session, user_id: int):
+        return db.query(User).filter(User.id == user_id).first()
+    
+    def get_user_by_username(self, db: Session, username: str):
+        return db.query(User).filter(User.username == username).first()
+    
+    def get_user_by_email(self, db: Session, email: str):
+        return db.query(User).filter(User.email == email).first()
+    
+    def create_user(self, db: Session, user: UserCreate):
+        hashed_password = get_password_hash(user.password)
+        db_user = User(
+            username=user.username,
+            email=user.email,
+            full_name=user.full_name,
+            hashed_password=hashed_password
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    
+    def authenticate_user(self, db: Session, username: str, password: str):
+        user = self.get_user_by_username(db, username)
+        if not user:
+            return False
+        if not verify_password(password, user.hashed_password):
+            return False
+        return user
+
+# 创建全局实例
+user_service = UserService()
+</code></pre>
+<h3 id="25-">2.5 认证依赖项</h3>
+<p>创建<code>dependencies.py</code>，实现获取当前用户的依赖项：</p>
+<pre><code class="language-python">from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from security import SECRET_KEY, ALGORITHM
+from schemas import TokenData
+from services.user_service import user_service
+
+security = HTTPBearer()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=&quot;无法验证凭据&quot;,
+        headers={&quot;WWW-Authenticate&quot;: &quot;Bearer&quot;},
+    )
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: int = payload.get(&quot;user_id&quot;)
+        username: str = payload.get(&quot;sub&quot;)
+        if user_id is None or username is None:
+            raise credentials_exception
+        token_data = TokenData(user_id=user_id, username=username)
+    except JWTError:
+        raise credentials_exception
+    
+    user = user_service.get_user_by_id(db, user_id=token_data.user_id)
+    if user is None:
+        raise credentials_exception
+    if not user.is_active:
+        raise HTTPException(status_code=400, detail=&quot;用户已被禁用&quot;)
+    return user
+
+async def get_current_active_user(
+    current_user = Depends(get_current_user)
+):
+    return current_user
+
+async def get_current_admin_user(
+    current_user = Depends(get_current_user)
+):
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=&quot;需要管理员权限&quot;
+        )
+    return current_user
+</code></pre>
+<h3 id="26-">2.6 认证接口实现</h3>
+<p>修改<code>main.py</code>，添加认证相关接口：</p>
+<pre><code class="language-python">from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from datetime import timedelta
+from database import engine, Base
+from schemas import UserCreate, UserLogin, User, Token
+from services.user_service import user_service
+from security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from dependencies import get_db, get_current_active_user
+from services.vector_service import vector_service
+from services.document_service import document_service
+
+# 创建数据库表
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title=&quot;企业级智能知识库 API&quot;, version=&quot;0.1.0&quot;)
+
+# 配置 CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[&quot;*&quot;],  # 开发环境允许所有来源，生产环境请限制为具体域名
+    allow_credentials=True,
+    allow_methods=[&quot;*&quot;],
+    allow_headers=[&quot;*&quot;],
+)
+
+# ... 保留之前的请求模型 ...
+
+# 认证接口
+@app.post(&quot;/api/auth/register&quot;, response_model=User, status_code=status.HTTP_201_CREATED)
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = user_service.get_user_by_username(db, username=user.username)
+    if db_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=&quot;用户名已被注册&quot;
+        )
+    
+    db_user = user_service.get_user_by_email(db, email=user.email)
+    if db_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=&quot;邮箱已被注册&quot;
+        )
+    
+    return user_service.create_user(db=db, user=user)
+
+@app.post(&quot;/api/auth/login&quot;, response_model=Token)
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    user = user_service.authenticate_user(db, username=user.username, password=user.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=&quot;用户名或密码错误&quot;,
+            headers={&quot;WWW-Authenticate&quot;: &quot;Bearer&quot;},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={&quot;user_id&quot;: user.id, &quot;sub&quot;: user.username},
+        expires_delta=access_token_expires
+    )
+    
+    return {&quot;access_token&quot;: access_token, &quot;token_type&quot;: &quot;bearer&quot;}
+
+@app.get(&quot;/api/auth/me&quot;, response_model=User)
+def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+# ... 为之前的接口添加权限验证 ...
+
+@app.post(&quot;/api/documents/upload&quot;)
+async def upload_document(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        result = await document_service.upload_document(file)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get(&quot;/api/documents&quot;)
+async def get_documents(current_user: User = Depends(get_current_active_user)):
+    try:
+        documents = document_service.get_all_documents()
+        return {&quot;documents&quot;: documents, &quot;count&quot;: len(documents)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete(&quot;/api/documents/{document_id}&quot;)
+async def delete_document(
+    document_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        result = document_service.delete_document(document_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post(&quot;/api/vector/search&quot;)
+async def search_documents(
+    request: SearchRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    try:
+        results = vector_service.multi_query_search(
+            query=request.query,
+            top_k_per_query=5,
+            rerank_top_k=request.top_k
+        )
+        return {&quot;results&quot;: results, &quot;count&quot;: len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+</code></pre>
+<hr />
+<h2 id="3-">3. 前端认证系统实现</h2>
+<h3 id="31-api">3.1 API接口封装</h3>
+<p>修改<code>src/api/index.ts</code>，添加认证相关接口：</p>
+<pre><code class="language-typescript">// 认证相关接口
+export const authApi = {
+  // 注册
+  register: (data: { username: string; email: string; password: string; fullName?: string }) =&gt; 
+    api.post('/auth/register', data),
+  
+  // 登录
+  login: (data: { username: string; password: string }) =&gt; 
+    api.post('/auth/login', data),
+  
+  // 获取当前用户信息
+  getCurrentUser: () =&gt; 
+    api.get('/auth/me'),
+  
+  // 注销
+  logout: () =&gt; {
+    localStorage.removeItem('token');
+  }
+};
+
+// 添加请求拦截器，自动携带token
+api.interceptors.request.use(
+  (config) =&gt; {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) =&gt; {
+    return Promise.reject(error);
+  }
+);
+
+// 添加响应拦截器，处理401错误
+api.interceptors.response.use(
+  (response) =&gt; {
+    return response;
+  },
+  (error) =&gt; {
+    if (error.response &amp;&amp; error.response.status === 401) {
+      // 清除token并跳转到登录页
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+</code></pre>
+<h3 id="32-">3.2 状态管理更新</h3>
+<p>修改<code>src/store/index.ts</code>，添加用户相关状态：</p>
+<pre><code class="language-typescript">interface User {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string | null;
+  isAdmin: boolean;
+}
+
+interface AppState {
+  // 用户状态
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  
+  // 会话状态
+  sessions: Session[];
+  currentSessionId: string | null;
+  messages: Message[];
+  isChatLoading: boolean;
+  
+  // 文档状态
+  documents: any[];
+  isUploading: boolean;
+  uploadProgress: number;
+  
+  // 方法
+  setUser: (user: User | null) =&gt; void;
+  setIsAuthenticated: (value: boolean) =&gt; void;
+  setIsLoading: (value: boolean) =&gt; void;
+  login: (token: string, user: User) =&gt; void;
+  logout: () =&gt; void;
+  
+  // ... 保留之前的方法 ...
+}
+
+export const useAppStore = create&lt;AppState&gt;((set) =&gt; ({
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
+  
+  sessions: [],
+  currentSessionId: null,
+  messages: [],
+  isChatLoading: false,
+  
+  documents: [],
+  isUploading: false,
+  uploadProgress: 0,
+  
+  setUser: (user) =&gt; set({ user }),
+  setIsAuthenticated: (value) =&gt; set({ isAuthenticated: value }),
+  setIsLoading: (value) =&gt; set({ isLoading: value }),
+  
+  login: (token, user) =&gt; {
+    localStorage.setItem('token', token);
+    set({ 
+      user, 
+      isAuthenticated: true 
+    });
+  },
+  
+  logout: () =&gt; {
+    localStorage.removeItem('token');
+    set({ 
+      user: null, 
+      isAuthenticated: false,
+      sessions: [],
+      currentSessionId: null,
+      messages: []
+    });
+  },
+  
+  // ... 保留之前的方法 ...
+}));
+</code></pre>
+<h3 id="33-">3.3 登录与注册页面</h3>
+<p>创建<code>src/pages/LoginPage.tsx</code>：</p>
+<pre><code class="language-tsx">import { useState } from 'react';
+import { Card, Form, Input, Button, Tabs, message, Typography } from 'antd';
+import { UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { authApi } from '../api';
+import { useAppStore } from '../store';
+
+const { Title } = Typography;
+
+const LoginPage = () =&gt; {
+  const [activeTab, setActiveTab] = useState('login');
+  const [loading, setLoading] = useState(false);
+  const [loginForm] = Form.useForm();
+  const [registerForm] = Form.useForm();
+  
+  const navigate = useNavigate();
+  const { login } = useAppStore();
+  
+  // 处理登录
+  const handleLogin = async (values: any) =&gt; {
+    setLoading(true);
+    try {
+      const response = await authApi.login(values);
+      const { access_token } = response.data;
+      
+      // 获取用户信息
+      const userResponse = await authApi.getCurrentUser();
+      login(access_token, userResponse.data);
+      
+      message.success('登录成功');
+      navigate('/');
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '登录失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // 处理注册
+  const handleRegister = async (values: any) =&gt; {
+    setLoading(true);
+    try {
+      await authApi.register({
+        username: values.username,
+        email: values.email,
+        password: values.password,
+        fullName: values.fullName
+      });
+      
+      message.success('注册成功，请登录');
+      setActiveTab('login');
+      loginForm.setFieldsValue({
+        username: values.username,
+        password: values.password
+      });
+    } catch (error: any) {
+      message.error(error.response?.data?.detail || '注册失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  return (
+    &lt;div style={{ 
+      display: 'flex', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      minHeight: '100vh',
+      background: '#f0f2f5'
+    }}&gt;
+      &lt;Card style={{ width: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}&gt;
+        &lt;div style={{ textAlign: 'center', marginBottom: 24 }}&gt;
+          &lt;Title level={2}&gt;企业级智能知识库&lt;/Title&gt;
+        &lt;/div&gt;
+        
+        &lt;Tabs activeKey={activeTab} onChange={setActiveTab}&gt;
+          &lt;Tabs.TabPane tab=&quot;登录&quot; key=&quot;login&quot;&gt;
+            &lt;Form
+              form={loginForm}
+              layout=&quot;vertical&quot;
+              onFinish={handleLogin}
+              autoComplete=&quot;off&quot;
+            &gt;
+              &lt;Form.Item
+                name=&quot;username&quot;
+                label=&quot;用户名&quot;
+                rules={[{ required: true, message: '请输入用户名' }]}
+              &gt;
+                &lt;Input prefix={&lt;UserOutlined /&gt;} placeholder=&quot;请输入用户名&quot; /&gt;
+              &lt;/Form.Item&gt;
+              
+              &lt;Form.Item
+                name=&quot;password&quot;
+                label=&quot;密码&quot;
+                rules={[{ required: true, message: '请输入密码' }]}
+              &gt;
+                &lt;Input.Password prefix={&lt;LockOutlined /&gt;} placeholder=&quot;请输入密码&quot; /&gt;
+              &lt;/Form.Item&gt;
+              
+              &lt;Form.Item&gt;
+                &lt;Button type=&quot;primary&quot; htmlType=&quot;submit&quot; loading={loading} block&gt;
+                  登录
+                &lt;/Button&gt;
+              &lt;/Form.Item&gt;
+            &lt;/Form&gt;
+          &lt;/Tabs.TabPane&gt;
+          
+          &lt;Tabs.TabPane tab=&quot;注册&quot; key=&quot;register&quot;&gt;
+            &lt;Form
+              form={registerForm}
+              layout=&quot;vertical&quot;
+              onFinish={handleRegister}
+              autoComplete=&quot;off&quot;
+            &gt;
+              &lt;Form.Item
+                name=&quot;username&quot;
+                label=&quot;用户名&quot;
+                rules={[{ required: true, message: '请输入用户名' }]}
+              &gt;
+                &lt;Input prefix={&lt;UserOutlined /&gt;} placeholder=&quot;请输入用户名&quot; /&gt;
+              &lt;/Form.Item&gt;
+              
+              &lt;Form.Item
+                name=&quot;email&quot;
+                label=&quot;邮箱&quot;
+                rules={[
+                  { required: true, message: '请输入邮箱' },
+                  { type: 'email', message: '请输入有效的邮箱地址' }
+                ]}
+              &gt;
+                &lt;Input prefix={&lt;MailOutlined /&gt;} placeholder=&quot;请输入邮箱&quot; /&gt;
+              &lt;/Form.Item&gt;
+              
+              &lt;Form.Item
+                name=&quot;fullName&quot;
+                label=&quot;姓名&quot;
+              &gt;
+                &lt;Input placeholder=&quot;请输入姓名（可选）&quot; /&gt;
+              &lt;/Form.Item&gt;
+              
+              &lt;Form.Item
+                name=&quot;password&quot;
+                label=&quot;密码&quot;
+                rules={[
+                  { required: true, message: '请输入密码' },
+                  { min: 6, message: '密码至少6个字符' }
+                ]}
+              &gt;
+                &lt;Input.Password prefix={&lt;LockOutlined /&gt;} placeholder=&quot;请输入密码&quot; /&gt;
+              &lt;/Form.Item&gt;
+              
+              &lt;Form.Item
+                name=&quot;confirmPassword&quot;
+                label=&quot;确认密码&quot;
+                dependencies={['password']}
+                rules={[
+                  { required: true, message: '请确认密码' },
+                  ({ getFieldValue }) =&gt; ({
+                    validator(_, value) {
+                      if (!value || getFieldValue('password') === value) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(new Error('两次输入的密码不一致'));
+                    },
+                  }),
+                ]}
+              &gt;
+                &lt;Input.Password prefix={&lt;LockOutlined /&gt;} placeholder=&quot;请确认密码&quot; /&gt;
+              &lt;/Form.Item&gt;
+              
+              &lt;Form.Item&gt;
+                &lt;Button type=&quot;primary&quot; htmlType=&quot;submit&quot; loading={loading} block&gt;
+                  注册
+                &lt;/Button&gt;
+              &lt;/Form.Item&gt;
+            &lt;/Form&gt;
+          &lt;/Tabs.TabPane&gt;
+        &lt;/Tabs&gt;
+      &lt;/Card&gt;
+    &lt;/div&gt;
+  );
+};
+
+export default LoginPage;
+</code></pre>
+<h3 id="34-">3.4 路由守卫实现</h3>
+<p>创建<code>src/components/ProtectedRoute.tsx</code>：</p>
+<pre><code class="language-tsx">import { Navigate } from 'react-router-dom';
+import { useAppStore } from '../store';
+import { Spin } from 'antd';
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC&lt;ProtectedRouteProps&gt; = ({ children }) =&gt; {
+  const { isAuthenticated, isLoading } = useAppStore();
+  
+  if (isLoading) {
+    return (
+      &lt;div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh' 
+      }}&gt;
+        &lt;Spin size=&quot;large&quot; /&gt;
+      &lt;/div&gt;
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return &lt;Navigate to=&quot;/login&quot; replace /&gt;;
+  }
+  
+  return &lt;&gt;{children}&lt;/&gt;;
+};
+
+export default ProtectedRoute;
+</code></pre>
+<h3 id="35-">3.5 应用初始化与路由更新</h3>
+<p>修改<code>src/App.tsx</code>，添加应用初始化逻辑和路由守卫：</p>
+<pre><code class="language-tsx">import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Layout, Menu, Button, Dropdown, Avatar, Typography } from 'antd';
+import { 
+  FileOutlined, 
+  MessageOutlined, 
+  SettingOutlined, 
+  UserOutlined,
+  LogoutOutlined
+} from '@ant-design/icons';
+import DocumentPage from './pages/DocumentPage';
+import ChatPage from './pages/ChatPage';
+import SettingsPage from './pages/SettingsPage';
+import LoginPage from './pages/LoginPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import { useAppStore } from './store';
+import { authApi } from './api';
+import './App.css';
+
+const { Header, Sider, Content } = Layout;
+const { Text } = Typography;
+
+function App() {
+  const { user, isAuthenticated, setUser, setIsAuthenticated, setIsLoading, logout } = useAppStore();
+  
+  // 应用初始化：检查登录状态
+  useEffect(() =&gt; {
+    const initApp = async () =&gt; {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await authApi.getCurrentUser();
+          setUser(response.data);
+          setIsAuthenticated(true);
+        } catch (error) {
+          localStorage.removeItem('token');
+        }
+      }
+      setIsLoading(false);
+    };
+    
+    initApp();
+  }, [setUser, setIsAuthenticated, setIsLoading]);
+  
+  // 用户菜单
+  const userMenuItems = [
+    {
+      key: 'logout',
+      icon: &lt;LogoutOutlined /&gt;,
+      label: '退出登录',
+      onClick: logout
+    }
+  ];
+  
+  return (
+    &lt;Router&gt;
+      &lt;Routes&gt;
+        &lt;Route path=&quot;/login&quot; element={&lt;LoginPage /&gt;} /&gt;
+        
+        &lt;Route path=&quot;*&quot; element={
+          &lt;ProtectedRoute&gt;
+            &lt;Layout style={{ minHeight: '100vh' }}&gt;
+              &lt;Header style={{ 
+                background: '#fff', 
+                padding: '0 20px', 
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}&gt;
+                &lt;h1 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}&gt;企业级智能知识库&lt;/h1&gt;
+                
+                &lt;Dropdown menu={{ items: userMenuItems }} placement=&quot;bottomRight&quot;&gt;
+                  &lt;div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}&gt;
+                    &lt;Avatar icon={&lt;UserOutlined /&gt;} style={{ marginRight: 8 }} /&gt;
+                    &lt;Text&gt;{user?.username}&lt;/Text&gt;
+                  &lt;/div&gt;
+                &lt;/Dropdown&gt;
+              &lt;/Header&gt;
+              
+              &lt;Layout&gt;
+                &lt;Sider width={200} style={{ background: '#fff' }}&gt;
+                  &lt;Menu
+                    mode=&quot;inline&quot;
+                    defaultSelectedKeys={['documents']}
+                    style={{ height: '100%', borderRight: 0 }}
+                    items={[
+                      {
+                        key: 'documents',
+                        icon: &lt;FileOutlined /&gt;,
+                        label: '文档管理',
+                        path: '/',
+                      },
+                      {
+                        key: 'chat',
+                        icon: &lt;MessageOutlined /&gt;,
+                        label: '智能问答',
+                        path: '/chat',
+                      },
+                      {
+                        key: 'settings',
+                        icon: &lt;SettingOutlined /&gt;,
+                        label: '系统设置',
+                        path: '/settings',
+                      },
+                    ]}
+                  /&gt;
+                &lt;/Sider&gt;
+                
+                &lt;Content style={{ padding: '24px', background: '#f5f5f5' }}&gt;
+                  &lt;Routes&gt;
+                    &lt;Route path=&quot;/&quot; element={&lt;DocumentPage /&gt;} /&gt;
+                    &lt;Route path=&quot;/chat&quot; element={&lt;ChatPage /&gt;} /&gt;
+                    &lt;Route path=&quot;/settings&quot; element={&lt;SettingsPage /&gt;} /&gt;
+                  &lt;/Routes&gt;
+                &lt;/Content&gt;
+              &lt;/Layout&gt;
+            &lt;/Layout&gt;
+          &lt;/ProtectedRoute&gt;
+        } /&gt;
+      &lt;/Routes&gt;
+    &lt;/Router&gt;
+  );
+}
+
+export default App;
+</code></pre>
+<hr />
+<h2 id="4-">4. 测试认证系统</h2>
+<p>现在我们来测试完整的认证流程：</p>
+<ol>
+<li>
+<p><strong>重启所有服务</strong>：</p>
+<ul>
+<li>FastAPI 后端：<code>cd backend &amp;&amp; uvicorn main:app --reload --port 8000</code></li>
+<li>OpenClaw 网关：<code>cd openclaw &amp;&amp; pnpm run start</code></li>
+<li>React 前端：<code>cd frontend &amp;&amp; pnpm run dev</code></li>
+</ul>
+</li>
+<li>
+<p><strong>测试注册功能</strong>：</p>
+<ul>
+<li>访问 <code>http://localhost:5173</code>，会自动跳转到登录页</li>
+<li>切换到&quot;注册&quot;标签页</li>
+<li>输入用户名、邮箱、密码，点击注册</li>
+<li>注册成功后会自动切换到登录页</li>
+</ul>
+</li>
+<li>
+<p><strong>测试登录功能</strong>：</p>
+<ul>
+<li>输入刚才注册的用户名和密码</li>
+<li>点击登录，成功后会跳转到文档管理页面</li>
+<li>右上角会显示当前登录的用户名</li>
+</ul>
+</li>
+<li>
+<p><strong>测试权限验证</strong>：</p>
+<ul>
+<li>尝试上传一个文档，验证是否需要登录</li>
+<li>打开浏览器的开发者工具，删除localStorage中的token</li>
+<li>刷新页面，会自动跳转到登录页</li>
+<li>尝试直接访问 <code>http://localhost:5173/chat</code>，会自动跳转到登录页</li>
+</ul>
+</li>
+<li>
+<p><strong>测试注销功能</strong>：</p>
+<ul>
+<li>点击右上角的用户名，选择&quot;退出登录&quot;</li>
+<li>会自动跳转到登录页</li>
+<li>此时所有需要认证的接口都无法访问</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="5-">5. 安全注意事项</h2>
+<h3 id="51-jwt">5.1 JWT安全最佳实践</h3>
+<ul>
+<li><strong>使用强密钥</strong>：在生产环境中使用足够长且随机的JWT密钥</li>
+<li><strong>设置合理的过期时间</strong>：不要设置过长的过期时间，建议1-24小时</li>
+<li><strong>不要在Payload中存储敏感信息</strong>：JWT是Base64编码的，任何人都可以解码</li>
+<li><strong>使用HTTPS</strong>：防止JWT在传输过程中被窃取</li>
+<li><strong>实现刷新token机制</strong>：使用短期访问token和长期刷新token</li>
+<li><strong>添加token黑名单</strong>：对于已注销但未过期的token，加入黑名单</li>
+</ul>
+<h3 id="52-">5.2 密码安全</h3>
+<ul>
+<li><strong>永远不要存储明文密码</strong>：使用bcrypt等算法进行加密</li>
+<li><strong>强制密码强度</strong>：要求用户使用包含大小写字母、数字和特殊字符的密码</li>
+<li><strong>限制登录尝试次数</strong>：防止暴力破解</li>
+<li><strong>支持双因素认证</strong>：对于重要系统，添加双因素认证</li>
+</ul>
+<h3 id="53-api">5.3 API安全</h3>
+<ul>
+<li><strong>输入验证</strong>：对所有用户输入进行严格验证</li>
+<li><strong>接口限流</strong>：防止DoS攻击</li>
+<li><strong>CORS配置</strong>：在生产环境中限制允许的来源</li>
+<li><strong>错误处理</strong>：不要在错误信息中暴露敏感信息</li>
+</ul>
+<hr />
+<h2 id="6-">6. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── .env
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── uploads/
+│   ├── database.py
+│   ├── models.py
+│   ├── schemas.py
+│   ├── security.py
+│   ├── dependencies.py
+│   ├── utils/
+│   │   ├── text_splitter.py
+│   │   └── document_parser.py
+│   └── services/
+│       ├── vector_service.py
+│       ├── document_service.py
+│       ├── chat_service.py
+│       └── user_service.py
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       ├── document-parser/
+│       └── rag-retrieval/
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    │   ├── api/
+    │   │   └── index.ts
+    │   ├── components/
+    │   │   ├── SessionList.tsx
+    │   │   └── ProtectedRoute.tsx
+    │   ├── pages/
+    │   │   ├── DocumentPage.tsx
+    │   │   ├── ChatPage.tsx
+    │   │   ├── SettingsPage.tsx
+    │   │   ├── LoginPage.tsx
+    │   │   └── ChatPage.css
+    │   ├── store/
+    │   │   └── index.ts
+    │   ├── utils/
+    │   ├── App.tsx
+    │   ├── App.css
+    │   └── main.tsx
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="7-">7. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>深入理解了JWT认证的核心原理和优势</li>
+<li>在FastAPI后端实现了完整的用户认证系统</li>
+<li>设计并实现了用户数据库模型和安全的密码加密</li>
+<li>开发了用户注册、登录和获取当前用户信息接口</li>
+<li>为所有敏感接口添加了权限验证</li>
+<li>在前端实现了登录状态管理和路由守卫</li>
+<li>开发了美观的登录和注册页面</li>
+<li>测试了完整的认证流程</li>
+<li>总结了JWT和API安全的最佳实践</li>
+</ul>
+
+  </div>
+
+  
+  <nav class="post-nav">
+    
+    <div class="post-nav-card post-nav-card--empty">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">上一篇</span>
+        <span class="post-nav-card__empty-text">没有上一篇了~</span>
+      </div>
+    </div>
+    
+    
+    <a href="/post/web3-quan-zhan-kai-fa-shi-zhansheng-chan-ji-you-hua-yu-bu-shu/" class="post-nav-card post-nav-card--next">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">下一篇</span>
+        <span class="post-nav-card__title">Web3 全栈开发实战：生产级优化与部署</span>
+      </div>
+      
+      <span class="post-nav-card__arrow">&rarr;</span>
+    </a>
+    
+  </nav>
+
+  
+  
+
+
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+  <div class="footer-inner">
+
+    
+    
+    <nav class="footer-nav" aria-label="页脚导航">
+      
+      <a class="footer-nav__link" href="/">首页</a>
+      
+      <a class="footer-nav__link" href="/post">博客</a>
+      
+      <a class="footer-nav__link" href="/memos">闪念</a>
+      
+      <a class="footer-nav__link" href="/archives">归档</a>
+      
+      <a class="footer-nav__link" href="/tags">标签</a>
+      
+      <a class="footer-nav__link" href="/links">友链</a>
+      
+      <a class="footer-nav__link" href="/post/about">关于</a>
+      
+    </nav>
+    
+
+    
+    <div class="footer-social">
+      
+      <a class="footer-social__link" href="xx0-0xx" target="_blank" rel="noopener noreferrer"
+        aria-label="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+        </svg>
+      </a>
+      
+      
+      
+      <a class="footer-social__link" href="/feed.xml" aria-label="RSS">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.18 15.64a2.18 2.18 0 110 4.36 2.18 2.18 0 010-4.36zM4 4.44A15.56 15.56 0 0119.56 20h-2.83A12.73 12.73 0 004 7.27V4.44zm0 5.66a9.9 9.9 0 019.9 9.9h-2.83A7.07 7.07 0 004 12.93V10.1z"/>
+        </svg>
+      </a>
+    </div>
+
+    
+    <div class="footer-copyright">
+      <p>&copy; 2026 Stariverse. All rights reserved.</p>
+    </div>
+
+    
+    
+    <div class="footer-custom">
+      Stariverse
+    </div>
+    
+
+    
+    <div class="footer-powered">
+      <span>Powered by <a href="https://gridea.pro" target="_blank" rel="noopener noreferrer">Gridea Pro</a></span>
+    </div>
+
+  </div>
+</footer>
+
+  
+  <div class="search-overlay" id="searchOverlay" style="display:none;">
+  <div class="search-modal">
+    <div class="search-header">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索文章..." autocomplete="off" />
+      <span class="search-kbd">&#8984;K</span>
+      <button class="search-close" id="searchClose" type="button" aria-label="关闭搜索">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<script src="/scripts/search.js"></script>
+  
+
+  
+
+  
+
+  
+
+<script>console.log("\n%c ✦ Gridea Pro v1.1.1 %c · Theme: flavor-theme v1.0.0 · https://gridea.pro %c\n","color:#fadfa3;background:#111111;padding:9px 14px;border-radius:4px 0 0 4px;font-weight:500;font-size:12px","color:#e05c00;background:#fff3ec;padding:9px 14px;border-radius:0 4px 4px 0;font-size:11px","")</script>
+</body>
+</html>
