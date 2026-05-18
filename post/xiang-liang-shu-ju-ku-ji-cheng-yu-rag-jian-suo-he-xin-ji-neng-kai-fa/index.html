@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<link rel="stylesheet" href="/styles/main.min.css">
+
+
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+
+
+<style>:root { --heatmap-color: #39d353; }</style>
+
+
+
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('flavor-theme');
+      var theme = saved || 'dark';
+      if (theme === 'light') {
+        document.documentElement.classList.add('theme-light');
+      }
+    } catch (e) { }
+  })();
+</script>
+  <meta name="generator" content="Gridea Pro 1.1.1">
+  <title>向量数据库集成与 RAG 检索核心技能开发 | Stariverse</title>
+  
+<meta property="og:title" content="向量数据库集成与 RAG 检索核心技能开发" />
+<meta property="og:type" content="article" />
+
+
+<meta name="description" content="在上一篇文章中，我们深入学习了 OpenClaw 的核心机制，开发了多格式文档解析技能，并学会了通过 API 调用 OpenClaw 技能。这篇文章，我们将集成向量数据库 Chroma，开发文档向量化和检索技能，完成 RAG 系统的核心检索模块。 摘要 理解向量数据库的工作原理与在 RAG 系统中的作用 掌握 Chroma 向量数据库的安装与基本操作 在 FastAP&amp;hellip;">
+<meta name="keywords" content="xx0-0xx,三七不是中药,Stariverse">
+<link rel="canonical" href="https://www.xx0-0xx.space/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"向量数据库集成与 RAG 检索核心技能开发","url":"https://www.xx0-0xx.space/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/","description":"在上一篇文章中，我们深入学习了 OpenClaw 的核心机制，开发了多格式文档解析技能，并学会了通过 API 调用 OpenClaw 技能。这篇文章，我们将集成向量数据库 Chroma，开发文档向量化和检索技能，完成 RAG 系统的核心检索模块。 摘要 理解向量数据库的工作原理与在 RAG 系统中的作用 掌握 Chroma 向量数据库的安装与基本操作 在 FastAP\u0026hellip;","datePublished":"2026-03-30T08:56:09+08:00","dateModified":"2026-05-18T19:18:38+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://www.xx0-0xx.space","name":"Stariverse","position":1},{"@type":"ListItem","item":"https://www.xx0-0xx.space/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/","name":"向量数据库集成与 RAG 检索核心技能开发","position":2}]}</script>
+<meta property="og:title" content="向量数据库集成与 RAG 检索核心技能开发">
+<meta property="og:description" content="在上一篇文章中，我们深入学习了 OpenClaw 的核心机制，开发了多格式文档解析技能，并学会了通过 API 调用 OpenClaw 技能。这篇文章，我们将集成向量数据库 Chroma，开发文档向量化和检索技能，完成 RAG 系统的核心检索模块。 摘要 理解向量数据库的工作原理与在 RAG 系统中的作用 掌握 Chroma 向量数据库的安装与基本操作 在 FastAP&amp;hellip;">
+<meta property="og:url" content="https://www.xx0-0xx.space/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Stariverse">
+<meta property="og:image" content="/images/avatar.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://www.xx0-0xx.space/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/">
+<meta name="twitter:title" content="向量数据库集成与 RAG 检索核心技能开发">
+<meta name="twitter:description" content="在上一篇文章中，我们深入学习了 OpenClaw 的核心机制，开发了多格式文档解析技能，并学会了通过 API 调用 OpenClaw 技能。这篇文章，我们将集成向量数据库 Chroma，开发文档向量化和检索技能，完成 RAG 系统的核心检索模块。 摘要 理解向量数据库的工作原理与在 RAG 系统中的作用 掌握 Chroma 向量数据库的安装与基本操作 在 FastAP&amp;hellip;">
+<meta name="twitter:image" content="/images/avatar.png">
+</head>
+<body class="flavor-theme">
+
+  <header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <div class="top-bar">
+
+      
+      <div class="top-bar__left">
+        
+        <a href="https://www.xx0-0xx.space" class="site-avatar-link" aria-label="返回首页">
+          <img class="site-avatar" src="https://cdn.jsdelivr.net/gh/xx0-0xx/xx0-0xx.github.io@main/images/theme/6d8d2067-54ee-41ae-9387-6abfb926698d.png" alt="Stariverse" />
+        </a>
+        
+        <a href="https://www.xx0-0xx.space" class="site-name-link">Stariverse</a>
+      </div>
+
+      
+      <nav class="top-bar__nav" id="sectionBar">
+        
+        
+        <a class="nav-item" href="/">首页</a>
+        
+        <a class="nav-item" href="/post">博客</a>
+        
+        <a class="nav-item" href="/memos">闪念</a>
+        
+        <a class="nav-item" href="/archives">归档</a>
+        
+        <a class="nav-item" href="/tags">标签</a>
+        
+        <a class="nav-item" href="/links">友链</a>
+        
+        <a class="nav-item" href="/post/about">关于</a>
+        
+        
+      </nav>
+
+      
+      <div class="top-bar__right">
+        <button class="btn-icon btn-search search-btn" id="btnSearch" type="button" aria-label="搜索">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-sun" id="themeToggleSun" type="button"
+          aria-label="切换到浅色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 1C12.5523 1 13 1.44772 13 2V4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4V2C11 1.44772 11.4477 1 12 1Z"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12ZM12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9Z"></path>
+            <path d="M13 20C13 19.4477 12.5523 19 12 19C11.4477 19 11 19.4477 11 20V22C11 22.5523 11.4477 23 12 23C12.5523 23 13 22.5523 13 22V20Z"></path>
+            <path d="M4.22282 4.22289C4.61335 3.83236 5.24651 3.83236 5.63704 4.22289L7.04704 5.63289C7.43756 6.02341 7.43756 6.65658 7.04704 7.0471C6.65651 7.43762 6.02335 7.43762 5.63283 7.0471L4.22282 5.6371C3.8323 5.24658 3.8323 4.61341 4.22282 4.22289Z"></path>
+            <path d="M18.367 16.9529C17.9765 16.5623 17.3433 16.5623 16.9528 16.9529C16.5623 17.3434 16.5623 17.9766 16.9528 18.3671L18.3628 19.7771C18.7533 20.1676 19.3865 20.1676 19.777 19.7771C20.1675 19.3866 20.1675 18.7534 19.777 18.3629L18.367 16.9529Z"></path>
+            <path d="M1 12C1 11.4477 1.44772 11 2 11H4C4.55228 11 5 11.4477 5 12C5 12.5523 4.55228 13 4 13H2C1.44772 13 1 12.5523 1 12Z"></path>
+            <path d="M20 11C19.4477 11 19 11.4477 19 12C19 12.5523 19.4477 13 20 13H22C22.5523 13 23 12.5523 23 12C23 11.4477 22.5523 11 22 11H20Z"></path>
+            <path d="M7.04704 16.9529C7.43756 17.3434 7.43756 17.9766 7.04704 18.3671L5.63704 19.7771C5.24651 20.1676 4.61335 20.1676 4.22282 19.7771C3.8323 19.3866 3.8323 18.7534 4.22283 18.3629L5.63283 16.9529C6.02335 16.5623 6.65651 16.5623 7.04704 16.9529Z"></path>
+            <path d="M19.777 5.6371C20.1675 5.24657 20.1675 4.61341 19.777 4.22289C19.3865 3.83236 18.7533 3.83236 18.3628 4.22289L16.9528 5.63289C16.5623 6.02341 16.5623 6.65658 16.9528 7.0471C17.3433 7.43762 17.9765 7.43762 18.367 7.0471L19.777 5.6371Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-moon" id="themeToggleMoon" type="button"
+          aria-label="切换到深色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 11.5955 21.7564 11.2309 21.3827 11.0761C21.009 10.9213 20.5789 11.0069 20.2929 11.2929C19.287 12.2988 17.9226 12.864 16.5 12.864C15.0774 12.864 13.713 12.2988 12.7071 11.2929C11.7012 10.287 11.136 8.92261 11.136 7.5C11.136 6.07739 11.7012 4.71304 12.7071 3.70711C12.9931 3.42111 13.0787 2.99099 12.9239 2.61732C12.7691 2.24364 12.4045 2 12 2ZM7.55544 5.34824C8.27036 4.87055 9.05353 4.51389 9.87357 4.28778C9.39271 5.27979 9.13604 6.37666 9.13604 7.5C9.13604 9.45304 9.91189 11.3261 11.2929 12.7071C12.6739 14.0881 14.547 14.864 16.5 14.864C17.6233 14.864 18.7202 14.6073 19.7122 14.1264C19.4861 14.9465 19.1295 15.7296 18.6518 16.4446C17.7727 17.7602 16.5233 18.7855 15.0615 19.391C13.5997 19.9965 11.9911 20.155 10.4393 19.8463C8.88743 19.5376 7.46197 18.7757 6.34315 17.6569C5.21447 16.538 4.4624 15.1126 4.15372 13.5607C3.84504 12.0089 4.00347 10.4003 4.60897 8.93853C5.21447 7.47672 6.23985 6.22729 7.55544 5.34824Z"></path>
+            <path d="M19 2C19.5523 2 20 2.44772 20 3V4H21C21.5523 4 22 4.44772 22 5C22 5.55228 21.5523 6 21 6H20V7C20 7.55228 19.5523 8 19 8C18.4477 8 18 7.55228 18 7V6H17C16.4477 6 16 5.55228 16 5C16 4.44772 16.4477 4 17 4H18V3C18 2.44772 18.4477 2 19 2Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon btn-nav-toggle mobile-only" id="btnNavToggle" type="button" aria-label="切换导航">
+          <div class="hamburger" id="hamburger">
+            <span class="hamburger__line hamburger__line--top"></span>
+            <span class="hamburger__line hamburger__line--bottom"></span>
+          </div>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+
+<div class="header-spacer"></div>
+
+<script>
+(function(){
+  var btn = document.getElementById('btnNavToggle');
+  var nav = document.getElementById('sectionBar');
+  var hamburger = document.getElementById('hamburger');
+  if (btn && nav) {
+    btn.addEventListener('click', function(){
+      nav.classList.toggle('top-bar__nav--open');
+      if (hamburger) hamburger.classList.toggle('is-active');
+    });
+    nav.querySelectorAll('.nav-item').forEach(function(item){
+      item.addEventListener('click', function(){
+        nav.classList.remove('top-bar__nav--open');
+        if (hamburger) hamburger.classList.remove('is-active');
+      });
+    });
+  }
+
+  var root = document.documentElement;
+  var applyTheme = function(theme, persist){
+    if (theme === 'light') {
+      root.classList.add('theme-light');
+    } else {
+      root.classList.remove('theme-light');
+    }
+    if (persist) {
+      try { localStorage.setItem('flavor-theme', theme); } catch (e) {}
+    }
+  };
+  document.querySelectorAll('.theme-toggle').forEach(function(el){
+    el.addEventListener('click', function(){
+      applyTheme(root.classList.contains('theme-light') ? 'dark' : 'light', true);
+    });
+  });
+})();
+</script>
+
+  <main class="site-main" role="main">
+    
+<article class="article-container">
+  <header class="article-header">
+    <h1 class="article-title">向量数据库集成与 RAG 检索核心技能开发</h1>
+    <div class="article-meta">
+      
+      <span class="article-meta__item">2026-03-30</span>
+      
+      <span class="article-meta__sep">·</span>
+      <span class="article-meta__item">21 分钟阅读</span>
+      
+    </div>
+    
+  </header>
+
+  
+
+  <div class="article-content">
+    <p>在上一篇文章中，我们深入学习了 OpenClaw 的核心机制，开发了多格式文档解析技能，并学会了通过 API 调用 OpenClaw 技能。这篇文章，我们将集成向量数据库 Chroma，开发文档向量化和检索技能，完成 RAG 系统的核心检索模块。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解向量数据库的工作原理与在 RAG 系统中的作用</li>
+<li>掌握 Chroma 向量数据库的安装与基本操作</li>
+<li>在 FastAPI 后端实现文档向量化、存储与检索接口</li>
+<li>开发 OpenClaw RAG 检索技能，实现自动知识检索</li>
+<li>完成完整的&quot;文档上传→解析→向量化→检索→问答&quot;基础流程</li>
+</ul>
+<hr />
+<h2 id="1-rag-">1. 向量数据库：RAG 系统的&quot;知识仓库&quot;</h2>
+<h3 id="11-">1.1 为什么我们需要向量数据库？</h3>
+<p>传统的关系型数据库擅长存储结构化数据和精确匹配查询，但无法处理语义相似性搜索。当用户提问&quot;如何重置密码？&ldquo;时，我们需要找到所有与&quot;密码重置&quot;语义相关的文档片段，而不仅仅是包含这几个关键词的文档。</p>
+<p>向量数据库专门解决这个问题：</p>
+<ul>
+<li>将文本转换为高维向量（Embedding）</li>
+<li>存储这些向量并建立高效的索引</li>
+<li>支持快速的相似度搜索，找到与查询向量最接近的向量</li>
+</ul>
+<h3 id="12--chroma">1.2 为什么选择 Chroma？</h3>
+<p>在众多向量数据库中，我们选择 Chroma 作为本地开发的首选：</p>
+<ul>
+<li><strong>零配置</strong>：无需额外部署服务，直接作为 Python 库使用</li>
+<li><strong>开发友好</strong>：API 简单直观，文档完善</li>
+<li><strong>性能足够</strong>：对于中小规模知识库（百万级向量）完全够用</li>
+<li><strong>开源免费</strong>：MIT 协议，可自由使用和修改</li>
+<li><strong>易于迁移</strong>：如果后续需要扩展，可以轻松迁移到 Pinecone、Weaviate 等生产级向量数据库</li>
+</ul>
+<h3 id="13-">1.3 嵌入模型选择</h3>
+<p>嵌入模型负责将文本转换为向量，它的质量直接影响 RAG 系统的检索效果。我们选择：</p>
+<ul>
+<li><strong>默认</strong>：OpenAI <code>text-embedding-3-small</code>（效果好，价格便宜，速度快）</li>
+<li><strong>备选</strong>：BGE-m3（开源本地模型，效果接近 OpenAI 模型）</li>
+<li><strong>生产环境</strong>：根据预算和性能需求选择合适的模型</li>
+</ul>
+<hr />
+<h2 id="2-fastapi-">2. FastAPI 后端：向量存储与检索接口开发</h2>
+<p>我们将在 FastAPI 后端实现所有向量相关的操作，因为 Python 在 AI 和数据处理方面有最好的生态支持。</p>
+<h3 id="21-">2.1 安装依赖</h3>
+<p>进入 <code>backend</code> 目录，激活虚拟环境，安装所需依赖：</p>
+<pre><code class="language-bash">cd backend
+source venv/bin/activate  # Windows 使用 venv\Scripts\activate
+
+pip install chromadb openai python-dotenv langchain langchain-text-splitters
+</code></pre>
+<p>创建 <code>.env</code> 文件，添加你的 OpenAI API Key：</p>
+<pre><code class="language-env">OPENAI_API_KEY=your-openai-api-key-here
+CHROMA_PERSIST_DIRECTORY=./chroma_db
+</code></pre>
+<h3 id="22-">2.2 文本分块策略</h3>
+<p>在向量化之前，我们需要将长文档拆分成适合模型处理的小块。这是 RAG 系统中最关键的步骤之一，直接影响检索效果。</p>
+<p>我们采用<strong>固定长度分块+重叠</strong>的策略：</p>
+<ul>
+<li>块大小：512 个 token（约 300-400 个汉字）</li>
+<li>重叠大小：50 个 token（确保上下文不被切断）</li>
+</ul>
+<p>创建 <code>utils/text_splitter.py</code>：</p>
+<pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+def split_text(text: str, chunk_size: int = 512, chunk_overlap: int = 50) -&gt; list[str]:
+    &quot;&quot;&quot;
+    将长文本拆分成小块
+    &quot;&quot;&quot;
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+    )
+    
+    chunks = text_splitter.split_text(text)
+    return chunks
+</code></pre>
+<h3 id="23-">2.3 向量数据库服务</h3>
+<p>创建 <code>services/vector_service.py</code>，实现向量的添加、检索和删除功能：</p>
+<pre><code class="language-python">import os
+import chromadb
+from chromadb.utils import embedding_functions
+from dotenv import load_dotenv
+from utils.text_splitter import split_text
+
+load_dotenv()
+
+class VectorService:
+    def __init__(self):
+        self.persist_directory = os.getenv(&quot;CHROMA_PERSIST_DIRECTORY&quot;, &quot;./chroma_db&quot;)
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
+        
+        # 使用 OpenAI 嵌入模型
+        self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=os.getenv(&quot;OPENAI_API_KEY&quot;),
+            model_name=&quot;text-embedding-3-small&quot;
+        )
+        
+        # 获取或创建集合
+        self.collection = self.client.get_or_create_collection(
+            name=&quot;knowledge_base&quot;,
+            embedding_function=self.embedding_function,
+            metadata={&quot;description&quot;: &quot;企业级智能知识库向量集合&quot;}
+        )
+    
+    def add_document(self, document_id: str, content: str, metadata: dict = None) -&gt; dict:
+        &quot;&quot;&quot;
+        添加文档到向量数据库
+        &quot;&quot;&quot;
+        # 拆分文本
+        chunks = split_text(content)
+        
+        # 生成块 ID
+        chunk_ids = [f&quot;{document_id}_chunk_{i}&quot; for i in range(len(chunks))]
+        
+        # 准备元数据
+        chunk_metadatas = []
+        for i, chunk in enumerate(chunks):
+            chunk_metadata = {
+                &quot;document_id&quot;: document_id,
+                &quot;chunk_index&quot;: i,
+                &quot;chunk_count&quot;: len(chunks),
+                &quot;content_preview&quot;: chunk[:100] + &quot;...&quot; if len(chunk) &gt; 100 else chunk
+            }
+            if metadata:
+                chunk_metadata.update(metadata)
+            chunk_metadatas.append(chunk_metadata)
+        
+        # 添加到向量数据库
+        self.collection.add(
+            ids=chunk_ids,
+            documents=chunks,
+            metadatas=chunk_metadatas
+        )
+        
+        return {
+            &quot;document_id&quot;: document_id,
+            &quot;chunk_count&quot;: len(chunks),
+            &quot;success&quot;: True
+        }
+    
+    def search(self, query: str, top_k: int = 5) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        搜索与查询最相关的文档片段
+        &quot;&quot;&quot;
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=top_k
+        )
+        
+        # 格式化结果
+        formatted_results = []
+        for i in range(len(results[&quot;ids&quot;][0])):
+            formatted_results.append({
+                &quot;id&quot;: results[&quot;ids&quot;][0][i],
+                &quot;document&quot;: results[&quot;documents&quot;][0][i],
+                &quot;metadata&quot;: results[&quot;metadatas&quot;][0][i],
+                &quot;distance&quot;: results[&quot;distances&quot;][0][i] if results[&quot;distances&quot;] else None
+            })
+        
+        return formatted_results
+    
+    def delete_document(self, document_id: str) -&gt; dict:
+        &quot;&quot;&quot;
+        删除文档及其所有块
+        &quot;&quot;&quot;
+        # 查找该文档的所有块
+        results = self.collection.get(
+            where={&quot;document_id&quot;: document_id}
+        )
+        
+        if not results[&quot;ids&quot;]:
+            return {
+                &quot;document_id&quot;: document_id,
+                &quot;deleted_count&quot;: 0,
+                &quot;success&quot;: True,
+                &quot;message&quot;: &quot;文档不存在&quot;
+            }
+        
+        # 删除所有块
+        self.collection.delete(ids=results[&quot;ids&quot;])
+        
+        return {
+            &quot;document_id&quot;: document_id,
+            &quot;deleted_count&quot;: len(results[&quot;ids&quot;]),
+            &quot;success&quot;: True
+        }
+
+# 创建全局实例
+vector_service = VectorService()
+</code></pre>
+<h3 id="24--api-">2.4 添加 API 接口</h3>
+<p>修改 <code>main.py</code>，添加向量相关的 API 接口：</p>
+<pre><code class="language-python">from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from services.vector_service import vector_service
+
+app = FastAPI(title=&quot;企业级智能知识库 API&quot;, version=&quot;0.1.0&quot;)
+
+# 配置 CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[&quot;*&quot;],  # 开发环境允许所有来源，生产环境请限制为具体域名
+    allow_credentials=True,
+    allow_methods=[&quot;*&quot;],
+    allow_headers=[&quot;*&quot;],
+)
+
+# 请求模型
+class AddDocumentRequest(BaseModel):
+    document_id: str
+    content: str
+    metadata: dict = None
+
+class SearchRequest(BaseModel):
+    query: str
+    top_k: int = 5
+
+class DeleteDocumentRequest(BaseModel):
+    document_id: str
+
+@app.get(&quot;/&quot;)
+async def root():
+    return {&quot;message&quot;: &quot;企业级智能知识库后端已启动&quot;, &quot;version&quot;: &quot;0.1.0&quot;}
+
+@app.get(&quot;/api/health&quot;)
+async def health_check():
+    return {&quot;status&quot;: &quot;healthy&quot;}
+
+@app.post(&quot;/api/vector/add-document&quot;)
+async def add_document(request: AddDocumentRequest):
+    try:
+        result = vector_service.add_document(
+            document_id=request.document_id,
+            content=request.content,
+            metadata=request.metadata
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post(&quot;/api/vector/search&quot;)
+async def search_documents(request: SearchRequest):
+    try:
+        results = vector_service.search(
+            query=request.query,
+            top_k=request.top_k
+        )
+        return {&quot;results&quot;: results, &quot;count&quot;: len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete(&quot;/api/vector/delete-document&quot;)
+async def delete_document(request: DeleteDocumentRequest):
+    try:
+        result = vector_service.delete_document(document_id=request.document_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+</code></pre>
+<h3 id="25-">2.5 测试接口</h3>
+<p>重启 FastAPI 服务：</p>
+<pre><code class="language-bash">uvicorn main:app --reload --port 8000
+</code></pre>
+<p>打开 <code>http://localhost:8000/docs</code>，使用 Swagger UI 测试接口：</p>
+<ol>
+<li>调用 <code>/api/vector/add-document</code> 添加一个测试文档</li>
+<li>调用 <code>/api/vector/search</code> 搜索相关内容</li>
+<li>验证搜索结果是否符合预期</li>
+</ol>
+<hr />
+<h2 id="3-openclaw-rag-">3. OpenClaw RAG 检索技能开发</h2>
+<p>现在我们来开发 OpenClaw 的 RAG 检索技能，它将调用 FastAPI 的检索接口，为大模型提供相关的知识上下文。</p>
+<h3 id="31--rag-">3.1 创建 RAG 检索技能目录</h3>
+<pre><code class="language-bash">cd ../openclaw
+mkdir skills/rag-retrieval
+</code></pre>
+<h3 id="32-">3.2 编写技能定义文件</h3>
+<p>创建 <code>skills/rag-retrieval/skill.yaml</code>：</p>
+<pre><code class="language-yaml">name: rag-retrieval
+description: 从企业知识库中检索与用户问题相关的文档片段。当用户询问企业内部知识、产品信息、规章制度等问题时，必须先调用此技能获取相关信息。
+author: Your Name
+version: 0.1.0
+category: 知识库
+
+parameters:
+  type: object
+  properties:
+    query:
+      type: string
+      description: 用户的问题，用于检索相关文档
+    top_k:
+      type: integer
+      description: 返回的最相关文档数量
+      default: 5
+      minimum: 1
+      maximum: 20
+  required:
+    - query
+
+returns:
+  type: object
+  properties:
+    success:
+      type: boolean
+      description: 是否检索成功
+    results:
+      type: array
+      description: 检索到的文档片段列表
+      items:
+        type: object
+        properties:
+          document:
+            type: string
+            description: 文档片段内容
+          metadata:
+            type: object
+            description: 文档元数据
+          distance:
+            type: number
+            description: 相似度距离（越小越相似）
+    count:
+      type: integer
+      description: 返回的结果数量
+</code></pre>
+<h3 id="33-">3.3 编写技能执行代码</h3>
+<p>创建 <code>skills/rag-retrieval/index.ts</code>：</p>
+<pre><code class="language-typescript">import { SkillContext, SkillResult } from 'openclaw';
+import axios from 'axios';
+
+interface RagRetrievalParams {
+  query: string;
+  top_k?: number;
+}
+
+export default async function execute(
+  params: RagRetrievalParams,
+  context: SkillContext
+): Promise&lt;SkillResult&gt; {
+  const { query, top_k = 5 } = params;
+  
+  try {
+    context.logger.info(`开始检索知识库，查询: &quot;${query}&quot;, top_k: ${top_k}`);
+    
+    // 调用 FastAPI 检索接口
+    const response = await axios.post('http://localhost:8000/api/vector/search', {
+      query,
+      top_k
+    });
+    
+    const { results, count } = response.data;
+    
+    context.logger.info(`检索完成，找到 ${count} 个相关文档片段`);
+    
+    // 记录检索结果（用于调试）
+    results.forEach((result: any, index: number) =&gt; {
+      context.logger.debug(`结果 ${index+1}: 距离=${result.distance?.toFixed(4)}, 来源=${result.metadata?.fileName || '未知'}`);
+    });
+    
+    return {
+      success: true,
+      data: {
+        success: true,
+        results,
+        count
+      }
+    };
+    
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.detail || error.message;
+    context.logger.error(`知识库检索失败: ${errorMessage}`);
+    
+    return {
+      success: false,
+      error: `知识库检索失败: ${errorMessage}`
+    };
+  }
+}
+</code></pre>
+<h3 id="34-">3.4 安装依赖并注册技能</h3>
+<p>安装 axios 依赖：</p>
+<pre><code class="language-bash">pnpm add axios
+</code></pre>
+<p>编辑 <code>.claw/config.yaml</code>，添加 RAG 检索技能：</p>
+<pre><code class="language-yaml">skills:
+  - path: ../skills/hello-world
+    enabled: true
+  - path: ../skills/document-parser
+    enabled: true
+  - path: ../skills/rag-retrieval
+    enabled: true
+</code></pre>
+<h3 id="35--openclaw-">3.5 配置 OpenClaw 自动调用检索技能</h3>
+<p>为了让 OpenClaw 在回答用户问题时自动调用 RAG 检索技能，我们需要修改系统提示词。</p>
+<p>编辑 <code>.claw/config.yaml</code>，添加以下内容：</p>
+<pre><code class="language-yaml">system_prompt: |
+  你是一个专业的企业知识库助手。你的任务是基于企业内部知识库的内容，准确、清晰地回答用户的问题。
+  
+  重要规则：
+  1. 当用户询问任何与企业内部知识、产品信息、规章制度、流程规范相关的问题时，**必须先调用 rag-retrieval 技能**获取相关信息。
+  2. 你的回答必须严格基于检索到的文档内容，不得编造信息。
+  3. 如果检索结果中没有相关信息，请明确告诉用户&quot;知识库中没有找到相关信息&quot;，不要猜测。
+  4. 回答时要引用来源，格式为：[来源: 文件名]
+  5. 保持回答简洁明了，重点突出。
+</code></pre>
+<h3 id="36--rag-">3.6 测试完整 RAG 流程</h3>
+<p>现在我们来测试完整的&quot;文档添加→检索→问答&quot;流程：</p>
+<ol>
+<li>
+<p><strong>添加测试文档</strong>：<br />
+使用 Swagger UI 调用 <code>/api/vector/add-document</code> 接口，添加一个测试文档：</p>
+<pre><code class="language-json">{
+  &quot;document_id&quot;: &quot;test-doc-001&quot;,
+  &quot;content&quot;: &quot;公司员工请假制度：\n1. 员工享有每年 10 天的带薪年假，工作满 1 年以上可享受。\n2. 病假需要提供医院开具的病假证明，病假期间工资按 80% 发放。\n3. 事假需要提前 1 天申请，事假期间不发放工资。\n4. 加班可以调休，调休需要在加班后 3 个月内使用。&quot;,
+  &quot;metadata&quot;: {
+    &quot;fileName&quot;: &quot;员工请假制度.md&quot;,
+    &quot;department&quot;: &quot;人力资源部&quot;,
+    &quot;version&quot;: &quot;1.0&quot;
+  }
+}
+</code></pre>
+</li>
+<li>
+<p><strong>重启 OpenClaw 网关</strong>：</p>
+<pre><code class="language-bash">pnpm run start
+</code></pre>
+</li>
+<li>
+<p><strong>测试问答</strong>：<br />
+打开 OpenClaw Web 管理界面，输入问题：</p>
+<pre><code>员工每年有多少天带薪年假？
+</code></pre>
+<p>你应该会看到 OpenClaw 自动调用 <code>rag-retrieval</code> 技能，然后基于检索结果给出回答：</p>
+<pre><code>正在调用 rag-retrieval 技能...
+技能调用成功，找到 1 个相关文档片段。
+
+根据公司员工请假制度，员工享有每年 10 天的带薪年假，工作满 1 年以上可享受。
+[来源: 员工请假制度.md]
+</code></pre>
+</li>
+</ol>
+<p>恭喜！你已经成功实现了 RAG 系统的核心功能。</p>
+<hr />
+<h2 id="4-">4. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── .env
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── utils/
+│   │   └── text_splitter.py
+│   └── services/
+│       └── vector_service.py
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       ├── document-parser/
+│       └── rag-retrieval/
+│           ├── skill.yaml
+│           └── index.ts
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="5-">5. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>理解了向量数据库的工作原理和在 RAG 系统中的核心作用</li>
+<li>集成了 Chroma 向量数据库，实现了文档向量化、存储和检索功能</li>
+<li>设计并实现了合理的文本分块策略</li>
+<li>开发了 OpenClaw RAG 检索技能，实现了自动知识检索</li>
+<li>配置了系统提示词，让大模型基于检索结果回答问题</li>
+<li>测试了完整的&quot;文档添加→检索→问答&quot;基础 RAG 流程</li>
+</ul>
+
+  </div>
+
+  
+  <nav class="post-nav">
+    
+    <a href="/post/qian-duan-wen-dang-guan-li-yu-zhi-neng-wen-da-jie-mian-kai-fa/" class="post-nav-card post-nav-card--prev">
+      
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">上一篇</span>
+        <span class="post-nav-card__title">前端文档管理与智能问答界面开发</span>
+      </div>
+      <span class="post-nav-card__arrow">&larr;</span>
+    </a>
+    
+    
+    <a href="/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/" class="post-nav-card post-nav-card--next">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">下一篇</span>
+        <span class="post-nav-card__title">OpenClaw 核心概念与第一个 MCP 技能开发</span>
+      </div>
+      
+      <span class="post-nav-card__arrow">&rarr;</span>
+    </a>
+    
+  </nav>
+
+  
+  
+
+
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+  <div class="footer-inner">
+
+    
+    
+    <nav class="footer-nav" aria-label="页脚导航">
+      
+      <a class="footer-nav__link" href="/">首页</a>
+      
+      <a class="footer-nav__link" href="/post">博客</a>
+      
+      <a class="footer-nav__link" href="/memos">闪念</a>
+      
+      <a class="footer-nav__link" href="/archives">归档</a>
+      
+      <a class="footer-nav__link" href="/tags">标签</a>
+      
+      <a class="footer-nav__link" href="/links">友链</a>
+      
+      <a class="footer-nav__link" href="/post/about">关于</a>
+      
+    </nav>
+    
+
+    
+    <div class="footer-social">
+      
+      <a class="footer-social__link" href="xx0-0xx" target="_blank" rel="noopener noreferrer"
+        aria-label="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+        </svg>
+      </a>
+      
+      
+      
+      <a class="footer-social__link" href="/feed.xml" aria-label="RSS">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.18 15.64a2.18 2.18 0 110 4.36 2.18 2.18 0 010-4.36zM4 4.44A15.56 15.56 0 0119.56 20h-2.83A12.73 12.73 0 004 7.27V4.44zm0 5.66a9.9 9.9 0 019.9 9.9h-2.83A7.07 7.07 0 004 12.93V10.1z"/>
+        </svg>
+      </a>
+    </div>
+
+    
+    <div class="footer-copyright">
+      <p>&copy; 2026 Stariverse. All rights reserved.</p>
+    </div>
+
+    
+    
+    <div class="footer-custom">
+      Stariverse
+    </div>
+    
+
+    
+    <div class="footer-powered">
+      <span>Powered by <a href="https://gridea.pro" target="_blank" rel="noopener noreferrer">Gridea Pro</a></span>
+    </div>
+
+  </div>
+</footer>
+
+  
+  <div class="search-overlay" id="searchOverlay" style="display:none;">
+  <div class="search-modal">
+    <div class="search-header">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索文章..." autocomplete="off" />
+      <span class="search-kbd">&#8984;K</span>
+      <button class="search-close" id="searchClose" type="button" aria-label="关闭搜索">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<script src="/scripts/search.js"></script>
+  
+
+  
+
+  
+
+  
+
+<script>console.log("\n%c ✦ Gridea Pro v1.1.1 %c · Theme: flavor-theme v1.0.0 · https://gridea.pro %c\n","color:#fadfa3;background:#111111;padding:9px 14px;border-radius:4px 0 0 4px;font-weight:500;font-size:12px","color:#e05c00;background:#fff3ec;padding:9px 14px;border-radius:0 4px 4px 0;font-size:11px","")</script>
+</body>
+</html>

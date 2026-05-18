@@ -3,7 +3,7 @@
   <channel>
     <title>Stariverse</title>
     <link>https://www.xx0-0xx.space/</link>
-    <description>一个专注 Web3 全栈开发的技术博客，分享实战教程、前沿工具与去中心化应用搭建经验。                      </description>
+    <description>Stariverse技术博客，分享实战教程、前沿工具、ai项目与去中心化应用搭建经验。                      </description>
     <language>zh-cn</language>
     <generator>Gridea Pro</generator>
     <lastBuildDate>Sat, 16 May 2026 14:49:27 +0800</lastBuildDate>
@@ -340,6 +340,1103 @@ Sentry.init({
 ]]></description>
     </item>
     <item>
+      <title>RAG系统深度优化与多会话管理</title>
+      <link>https://www.xx0-0xx.space/post/ragxi-tong-shen-du-you-hua-yu-duo-hui-hua-guan-li/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/ragxi-tong-shen-du-you-hua-yu-duo-hui-hua-guan-li/</guid>
+      <pubDate>Sat, 04 Apr 2026 19:20:14 +0800</pubDate>
+      <description><![CDATA[<p>在上一篇文章中，我们完成了基础的智能知识库系统，实现了文档上传、管理和基本的问答功能。但基础RAG系统在实际使用中还存在不少问题：检索结果不够精准、多轮对话上下文理解能力弱、缺乏会话管理等。这篇文章，我们将对RAG系统进行深度优化，实现检索结果重排序、多查询检索、对话历史管理和多会话支持，大幅提升系统的回答质量和用户体验。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解基础RAG系统的局限性与核心优化方向</li>
+<li>集成Cohere Rerank实现检索结果重排序，显著提升回答准确性</li>
+<li>实现多查询检索与父文档检索，解决上下文缺失问题</li>
+<li>完善对话历史管理，优化多轮对话上下文理解</li>
+<li>开发多会话支持功能，实现会话创建、切换与删除</li>
+<li>优化用户体验细节，包括引用来源跳转与问题建议</li>
+</ul>
+<hr />
+<h2 id="1-rag">1. 基础RAG系统的局限性与优化方向</h2>
+<p>虽然我们的基础RAG系统已经能够工作，但在实际测试中你可能会发现以下问题：</p>
+<h3 id="11-rag">1.1 基础RAG的常见问题</h3>
+<ul>
+<li><strong>检索精度不足</strong>：经常返回一些语义相关但实际不相关的文档片段</li>
+<li><strong>上下文缺失</strong>：小块检索导致上下文不完整，大模型无法理解完整含义</li>
+<li><strong>多轮对话能力弱</strong>：无法有效利用之前的对话历史，需要用户重复说明</li>
+<li><strong>回答质量不稳定</strong>：同样的问题可能得到质量差异很大的回答</li>
+<li><strong>缺乏会话管理</strong>：只有一个全局会话，无法同时处理多个主题</li>
+</ul>
+<h3 id="12-">1.2 我们的优化方案</h3>
+<p>针对这些问题，我们将实施以下优化措施：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>解决方案</th>
+<th>预期效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检索精度不足</td>
+<td>检索结果重排序（Cohere Rerank）</td>
+<td>回答准确率提升30-50%</td>
+</tr>
+<tr>
+<td>上下文缺失</td>
+<td>父文档检索 + 更大的上下文窗口</td>
+<td>回答更完整、更准确</td>
+</tr>
+<tr>
+<td>召回率低</td>
+<td>多查询检索（Multi-Query Retrieval）</td>
+<td>找到更多相关的文档片段</td>
+</tr>
+<tr>
+<td>多轮对话能力弱</td>
+<td>对话历史压缩 + 上下文感知检索</td>
+<td>更好地理解多轮对话上下文</td>
+</tr>
+<tr>
+<td>缺乏会话管理</td>
+<td>前端多会话支持 + 后端会话持久化</td>
+<td>支持同时处理多个主题的对话</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-rag">2. RAG检索效果核心优化</h2>
+<h3 id="21-reranking">2.1 检索结果重排序（Reranking）</h3>
+<p>检索结果重排序是提升RAG系统效果最有效的方法之一。基础的向量相似度搜索只能找到语义上相似的文档，但无法判断这些文档与问题的实际相关性。重排序模型会对初步检索到的结果进行重新打分，只保留最相关的前几个片段。</p>
+<p>我们选择Cohere Rerank作为重排序模型，它是目前效果最好的商用重排序模型之一，使用简单且价格便宜。</p>
+<h4 id="211-">2.1.1 安装依赖与配置</h4>
+<p>进入<code>backend</code>目录，安装Cohere SDK：</p>
+<pre><code class="language-bash">cd backend
+source venv/bin/activate  # Windows 使用 venv\Scripts\activate
+pip install cohere
+</code></pre>
+<p>在<code>.env</code>文件中添加Cohere API Key：</p>
+<pre><code class="language-env">OPENAI_API_KEY=your-openai-api-key-here
+CHROMA_PERSIST_DIRECTORY=./chroma_db
+COHERE_API_KEY=your-cohere-api-key-here  # 新增
+</code></pre>
+<h4 id="212-">2.1.2 实现重排序功能</h4>
+<p>修改<code>services/vector_service.py</code>，添加重排序功能：</p>
+<pre><code class="language-python">import os
+import chromadb
+import cohere
+from chromadb.utils import embedding_functions
+from dotenv import load_dotenv
+from utils.text_splitter import split_text
+
+load_dotenv()
+
+class VectorService:
+    def __init__(self):
+        self.persist_directory = os.getenv(&quot;CHROMA_PERSIST_DIRECTORY&quot;, &quot;./chroma_db&quot;)
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
+        
+        # 使用 OpenAI 嵌入模型
+        self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=os.getenv(&quot;OPENAI_API_KEY&quot;),
+            model_name=&quot;text-embedding-3-small&quot;
+        )
+        
+        # 初始化 Cohere 重排序客户端
+        self.cohere_client = cohere.Client(os.getenv(&quot;COHERE_API_KEY&quot;))
+        
+        # 获取或创建集合
+        self.collection = self.client.get_or_create_collection(
+            name=&quot;knowledge_base&quot;,
+            embedding_function=self.embedding_function,
+            metadata={&quot;description&quot;: &quot;企业级智能知识库向量集合&quot;}
+        )
+    
+    # ... 保留之前的 add_document 和 delete_document 方法 ...
+    
+    def search(self, query: str, top_k: int = 10, rerank_top_k: int = 3) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        搜索与查询最相关的文档片段，并进行重排序
+        &quot;&quot;&quot;
+        # 第一步：初步检索，获取较多的结果
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=top_k
+        )
+        
+        if not results[&quot;ids&quot;][0]:
+            return []
+        
+        # 提取文档内容
+        documents = results[&quot;documents&quot;][0]
+        metadatas = results[&quot;metadatas&quot;][0]
+        ids = results[&quot;ids&quot;][0]
+        distances = results[&quot;distances&quot;][0] if results[&quot;distances&quot;] else [None] * len(documents)
+        
+        # 第二步：使用 Cohere Rerank 进行重排序
+        rerank_response = self.cohere_client.rerank(
+            model=&quot;rerank-english-v3.0&quot;,  # 中文使用 rerank-multilingual-v3.0
+            query=query,
+            documents=documents,
+            top_n=rerank_top_k
+        )
+        
+        # 格式化重排序后的结果
+        formatted_results = []
+        for rerank_result in rerank_response.results:
+            index = rerank_result.index
+            formatted_results.append({
+                &quot;id&quot;: ids[index],
+                &quot;document&quot;: documents[index],
+                &quot;metadata&quot;: metadatas[index],
+                &quot;original_distance&quot;: distances[index],
+                &quot;rerank_score&quot;: rerank_result.relevance_score
+            })
+        
+        # 按重排序分数降序排列
+        formatted_results.sort(key=lambda x: x[&quot;rerank_score&quot;], reverse=True)
+        
+        return formatted_results
+</code></pre>
+<h3 id="22-multi-query-retrieval">2.2 多查询检索（Multi-Query Retrieval）</h3>
+<p>用户的提问方式往往比较随意，单一查询可能无法覆盖所有相关的文档。多查询检索技术会让大模型根据用户的原始问题，生成多个不同角度的查询，然后分别进行检索，最后合并结果。</p>
+<p>修改<code>services/vector_service.py</code>，添加多查询检索功能：</p>
+<pre><code class="language-python">from openai import OpenAI
+
+class VectorService:
+    def __init__(self):
+        # ... 保留之前的初始化代码 ...
+        self.openai_client = OpenAI(api_key=os.getenv(&quot;OPENAI_API_KEY&quot;))
+    
+    # ... 保留之前的方法 ...
+    
+    def generate_queries(self, original_query: str, num_queries: int = 3) -&gt; list[str]:
+        &quot;&quot;&quot;
+        根据原始问题生成多个不同角度的查询
+        &quot;&quot;&quot;
+        prompt = f&quot;&quot;&quot;
+        你是一个AI助手，你的任务是根据用户的原始问题，生成{num_queries}个不同角度的查询，用于从知识库中检索相关信息。
+        
+        原始问题：{original_query}
+        
+        请生成{num_queries}个不同的查询，每个查询应该从不同的角度表达相同的信息需求。查询应该简洁明了，直接针对核心问题。
+        请只返回查询内容，每行一个，不要添加任何其他解释或编号。
+        &quot;&quot;&quot;
+        
+        response = self.openai_client.chat.completions.create(
+            model=&quot;gpt-3.5-turbo&quot;,
+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
+            temperature=0.7
+        )
+        
+        queries = response.choices[0].message.content.strip().split('\n')
+        queries = [q.strip() for q in queries if q.strip()]
+        
+        # 确保包含原始查询
+        if original_query not in queries:
+            queries.insert(0, original_query)
+        
+        return queries[:num_queries]
+    
+    def multi_query_search(self, query: str, top_k_per_query: int = 5, rerank_top_k: int = 3) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        多查询检索：生成多个查询，分别检索后合并结果并重排序
+        &quot;&quot;&quot;
+        # 生成多个查询
+        queries = self.generate_queries(query)
+        
+        # 对每个查询进行检索
+        all_results = []
+        seen_ids = set()
+        
+        for q in queries:
+            results = self.collection.query(
+                query_texts=[q],
+                n_results=top_k_per_query
+            )
+            
+            for i in range(len(results[&quot;ids&quot;][0])):
+                doc_id = results[&quot;ids&quot;][0][i]
+                if doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_results.append({
+                        &quot;id&quot;: doc_id,
+                        &quot;document&quot;: results[&quot;documents&quot;][0][i],
+                        &quot;metadata&quot;: results[&quot;metadatas&quot;][0][i],
+                        &quot;original_distance&quot;: results[&quot;distances&quot;][0][i] if results[&quot;distances&quot;] else None
+                    })
+        
+        if not all_results:
+            return []
+        
+        # 对合并后的结果进行重排序
+        documents = [r[&quot;document&quot;] for r in all_results]
+        rerank_response = self.cohere_client.rerank(
+            model=&quot;rerank-multilingual-v3.0&quot;,
+            query=query,
+            documents=documents,
+            top_n=rerank_top_k
+        )
+        
+        # 格式化结果
+        formatted_results = []
+        for rerank_result in rerank_response.results:
+            index = rerank_result.index
+            result = all_results[index]
+            result[&quot;rerank_score&quot;] = rerank_result.relevance_score
+            formatted_results.append(result)
+        
+        # 按重排序分数降序排列
+        formatted_results.sort(key=lambda x: x[&quot;rerank_score&quot;], reverse=True)
+        
+        return formatted_results
+</code></pre>
+<h3 id="23-parent-document-retrieval">2.3 父文档检索（Parent Document Retrieval）</h3>
+<p>基础的小块检索虽然能提高检索精度，但会导致上下文缺失。父文档检索技术将文档拆分为较小的子块用于检索，但在生成回答时返回包含该子块的较大父块，从而提供更完整的上下文。</p>
+<p>修改<code>utils/text_splitter.py</code>，实现父子分块：</p>
+<pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+def split_text_with_parent(
+    text: str, 
+    parent_chunk_size: int = 2000, 
+    parent_chunk_overlap: int = 200,
+    child_chunk_size: int = 512, 
+    child_chunk_overlap: int = 50
+) -&gt; list[dict]:
+    &quot;&quot;&quot;
+    将文本拆分为父子块结构
+    &quot;&quot;&quot;
+    # 首先拆分为较大的父块
+    parent_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=parent_chunk_size,
+        chunk_overlap=parent_chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+    )
+    
+    parent_chunks = parent_splitter.split_text(text)
+    
+    # 然后将每个父块拆分为较小的子块
+    child_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=child_chunk_size,
+        chunk_overlap=child_chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+    )
+    
+    all_chunks = []
+    
+    for parent_index, parent_chunk in enumerate(parent_chunks):
+        child_chunks = child_splitter.split_text(parent_chunk)
+        
+        for child_index, child_chunk in enumerate(child_chunks):
+            all_chunks.append({
+                &quot;parent_index&quot;: parent_index,
+                &quot;child_index&quot;: child_index,
+                &quot;parent_content&quot;: parent_chunk,
+                &quot;child_content&quot;: child_chunk
+            })
+    
+    return all_chunks
+</code></pre>
+<p>修改<code>services/vector_service.py</code>的<code>add_document</code>方法，支持父子分块：</p>
+<pre><code class="language-python">def add_document(self, document_id: str, content: str, metadata: dict = None) -&gt; dict:
+    &quot;&quot;&quot;
+    添加文档到向量数据库（使用父子分块）
+    &quot;&quot;&quot;
+    # 使用父子分块策略
+    chunks = split_text_with_parent(content)
+    
+    # 生成块 ID
+    chunk_ids = [f&quot;{document_id}_chunk_{c['parent_index']}_{c['child_index']}&quot; for c in chunks]
+    
+    # 准备元数据
+    chunk_metadatas = []
+    for i, chunk in enumerate(chunks):
+        chunk_metadata = {
+            &quot;document_id&quot;: document_id,
+            &quot;parent_index&quot;: chunk[&quot;parent_index&quot;],
+            &quot;child_index&quot;: chunk[&quot;child_index&quot;],
+            &quot;parent_content&quot;: chunk[&quot;parent_content&quot;],
+            &quot;content_preview&quot;: chunk[&quot;child_content&quot;][:100] + &quot;...&quot; if len(chunk[&quot;child_content&quot;]) &gt; 100 else chunk[&quot;child_content&quot;]
+        }
+        if metadata:
+            chunk_metadata.update(metadata)
+        chunk_metadatas.append(chunk_metadata)
+    
+    # 添加到向量数据库（存储子块内容用于检索）
+    self.collection.add(
+        ids=chunk_ids,
+        documents=[c[&quot;child_content&quot;] for c in chunks],
+        metadatas=chunk_metadatas
+    )
+    
+    return {
+        &quot;document_id&quot;: document_id,
+        &quot;chunk_count&quot;: len(chunks),
+        &quot;success&quot;: True
+    }
+</code></pre>
+<p>修改<code>search</code>方法，返回父块内容用于生成回答：</p>
+<pre><code class="language-python">def search(self, query: str, top_k: int = 10, rerank_top_k: int = 3) -&gt; list[dict]:
+    &quot;&quot;&quot;
+    搜索与查询最相关的文档片段，并进行重排序（返回父块内容）
+    &quot;&quot;&quot;
+    # 第一步：初步检索，获取较多的结果
+    results = self.collection.query(
+        query_texts=[query],
+        n_results=top_k
+    )
+    
+    if not results[&quot;ids&quot;][0]:
+        return []
+    
+    # 提取文档内容和元数据
+    metadatas = results[&quot;metadatas&quot;][0]
+    ids = results[&quot;ids&quot;][0]
+    distances = results[&quot;distances&quot;][0] if results[&quot;distances&quot;] else [None] * len(metadatas)
+    
+    # 提取父块内容用于重排序
+    documents = [m[&quot;parent_content&quot;] for m in metadatas]
+    
+    # 第二步：使用 Cohere Rerank 进行重排序
+    rerank_response = self.cohere_client.rerank(
+        model=&quot;rerank-multilingual-v3.0&quot;,
+        query=query,
+        documents=documents,
+        top_n=rerank_top_k
+    )
+    
+    # 格式化重排序后的结果
+    formatted_results = []
+    seen_parent_indices = set()
+    
+    for rerank_result in rerank_response.results:
+        index = rerank_result.index
+        metadata = metadatas[index]
+        
+        # 避免重复返回同一个父块
+        parent_key = f&quot;{metadata['document_id']}_{metadata['parent_index']}&quot;
+        if parent_key in seen_parent_indices:
+            continue
+        seen_parent_indices.add(parent_key)
+        
+        formatted_results.append({
+            &quot;id&quot;: ids[index],
+            &quot;document&quot;: metadata[&quot;parent_content&quot;],  # 返回父块内容
+            &quot;child_document&quot;: metadata[&quot;content_preview&quot;],
+            &quot;metadata&quot;: metadata,
+            &quot;original_distance&quot;: distances[index],
+            &quot;rerank_score&quot;: rerank_result.relevance_score
+        })
+    
+    # 按重排序分数降序排列
+    formatted_results.sort(key=lambda x: x[&quot;rerank_score&quot;], reverse=True)
+    
+    return formatted_results[:rerank_top_k]
+</code></pre>
+<h3 id="24-api">2.4 更新API接口</h3>
+<p>修改<code>main.py</code>，更新搜索接口以使用优化后的搜索方法：</p>
+<pre><code class="language-python">@app.post(&quot;/api/vector/search&quot;)
+async def search_documents(request: SearchRequest):
+    try:
+        results = vector_service.multi_query_search(
+            query=request.query,
+            top_k_per_query=5,
+            rerank_top_k=request.top_k
+        )
+        return {&quot;results&quot;: results, &quot;count&quot;: len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+</code></pre>
+<hr />
+<h2 id="3-">3. 对话历史管理与多轮对话优化</h2>
+<h3 id="31-">3.1 对话历史压缩</h3>
+<p>随着对话的进行，历史消息会越来越长，不仅会消耗更多的token，还可能导致大模型分心。我们可以使用大模型对对话历史进行压缩，只保留关键信息。</p>
+<p>在<code>backend</code>目录下创建<code>services/chat_service.py</code>：</p>
+<pre><code class="language-python">from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class ChatService:
+    def __init__(self):
+        self.openai_client = OpenAI(api_key=os.getenv(&quot;OPENAI_API_KEY&quot;))
+    
+    def compress_history(self, messages: list[dict], max_tokens: int = 1000) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        压缩对话历史，只保留关键信息
+        &quot;&quot;&quot;
+        if len(messages) &lt;= 4:  # 保留最近的2轮对话
+            return messages
+        
+        # 保留系统提示和最近的2轮对话
+        recent_messages = messages[-4:]
+        
+        # 压缩更早的历史
+        older_messages = messages[:-4]
+        
+        if not older_messages:
+            return recent_messages
+        
+        prompt = f&quot;&quot;&quot;
+        请将以下对话历史压缩成一段简洁的摘要，保留所有关键信息：
+        
+        {older_messages}
+        
+        摘要应该简洁明了，不超过{max_tokens}个token。
+        &quot;&quot;&quot;
+        
+        response = self.openai_client.chat.completions.create(
+            model=&quot;gpt-3.5-turbo&quot;,
+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
+            temperature=0.3
+        )
+        
+        compressed_summary = response.choices[0].message.content
+        
+        # 构建压缩后的历史
+        compressed_history = [
+            {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: f&quot;之前的对话摘要：{compressed_summary}&quot;}
+        ] + recent_messages
+        
+        return compressed_history
+    
+    def generate_context_aware_query(self, query: str, history: list[dict]) -&gt; str:
+        &quot;&quot;&quot;
+        根据对话历史生成上下文感知的查询
+        &quot;&quot;&quot;
+        if len(history) &lt; 2:  # 没有足够的历史
+            return query
+        
+        prompt = f&quot;&quot;&quot;
+        给定以下对话历史和用户的最新问题，请生成一个上下文感知的查询，用于从知识库中检索相关信息。
+        
+        对话历史：
+        {history[-6:]}  # 保留最近的3轮对话
+        
+        用户最新问题：{query}
+        
+        请生成一个完整的查询，包含所有必要的上下文信息。查询应该简洁明了，直接针对核心问题。
+        请只返回查询内容，不要添加任何其他解释。
+        &quot;&quot;&quot;
+        
+        response = self.openai_client.chat.completions.create(
+            model=&quot;gpt-3.5-turbo&quot;,
+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
+            temperature=0.3
+        )
+        
+        context_aware_query = response.choices[0].message.content.strip()
+        
+        return context_aware_query
+
+# 创建全局实例
+chat_service = ChatService()
+</code></pre>
+<h3 id="32-openclaw">3.2 更新OpenClaw系统提示词</h3>
+<p>修改<code>openclaw/.claw/config.yaml</code>的系统提示词，优化多轮对话处理：</p>
+<pre><code class="language-yaml">system_prompt: |
+  你是一个专业的企业知识库助手。你的任务是基于企业内部知识库的内容，准确、清晰地回答用户的问题。
+  
+  重要规则：
+  1. 当用户询问任何与企业内部知识、产品信息、规章制度、流程规范相关的问题时，**必须先调用 rag-retrieval 技能**获取相关信息。
+  2. 你的回答必须严格基于检索到的文档内容，不得编造信息。
+  3. 如果检索结果中没有相关信息，请明确告诉用户&quot;知识库中没有找到相关信息&quot;，不要猜测。
+  4. 回答时要引用来源，格式为：[来源: 文件名]
+  5. 保持回答简洁明了，重点突出。
+  6. 在多轮对话中，要结合之前的对话上下文理解用户的问题。如果用户的问题指代不明确，可以适当追问。
+</code></pre>
+<hr />
+<h2 id="4-">4. 多会话支持实现</h2>
+<h3 id="41-">4.1 前端多会话管理</h3>
+<p>首先，我们需要在前端状态管理中添加会话相关的状态。修改<code>src/store/index.ts</code>：</p>
+<pre><code class="language-typescript">import { create } from 'zustand';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: any[];
+  timestamp: Date;
+}
+
+interface Session {
+  id: string;
+  title: string;
+  createdAt: Date;
+}
+
+interface AppState {
+  // 会话状态
+  sessions: Session[];
+  currentSessionId: string | null;
+  messages: Message[];
+  isLoading: boolean;
+  
+  // 文档状态
+  documents: any[];
+  isUploading: boolean;
+  uploadProgress: number;
+  
+  // 方法
+  setSessions: (sessions: Session[]) =&gt; void;
+  addSession: (session: Session) =&gt; void;
+  deleteSession: (sessionId: string) =&gt; void;
+  setCurrentSessionId: (id: string | null) =&gt; void;
+  addMessage: (message: Message) =&gt; void;
+  setMessages: (messages: Message[]) =&gt; void;
+  setIsLoading: (loading: boolean) =&gt; void;
+  setDocuments: (documents: any[]) =&gt; void;
+  setIsUploading: (uploading: boolean) =&gt; void;
+  setUploadProgress: (progress: number) =&gt; void;
+  clearMessages: () =&gt; void;
+}
+
+export const useAppStore = create&lt;AppState&gt;((set) =&gt; ({
+  sessions: [],
+  currentSessionId: null,
+  messages: [],
+  isLoading: false,
+  documents: [],
+  isUploading: false,
+  uploadProgress: 0,
+  
+  setSessions: (sessions) =&gt; set({ sessions }),
+  addSession: (session) =&gt; set((state) =&gt; ({ 
+    sessions: [...state.sessions, session] 
+  })),
+  deleteSession: (sessionId) =&gt; set((state) =&gt; ({ 
+    sessions: state.sessions.filter(s =&gt; s.id !== sessionId),
+    currentSessionId: state.currentSessionId === sessionId ? null : state.currentSessionId,
+    messages: state.currentSessionId === sessionId ? [] : state.messages
+  })),
+  setCurrentSessionId: (id) =&gt; set({ currentSessionId: id }),
+  addMessage: (message) =&gt; set((state) =&gt; ({ 
+    messages: [...state.messages, message] 
+  })),
+  setMessages: (messages) =&gt; set({ messages }),
+  setIsLoading: (loading) =&gt; set({ isLoading: loading }),
+  setDocuments: (documents) =&gt; set({ documents }),
+  setIsUploading: (uploading) =&gt; set({ isUploading: uploading }),
+  setUploadProgress: (progress) =&gt; set({ uploadProgress: progress }),
+  clearMessages: () =&gt; set({ messages: [] }),
+}));
+</code></pre>
+<h3 id="42-">4.2 会话列表组件</h3>
+<p>创建<code>src/components/SessionList.tsx</code>：</p>
+<pre><code class="language-tsx">import { useState } from 'react';
+import { List, Button, Popconfirm, message } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { openclawApiService } from '../api';
+import { useAppStore } from '../store';
+
+const SessionList = () =&gt; {
+  const { sessions, setSessions, addSession, deleteSession, currentSessionId, setCurrentSessionId, setMessages } = useAppStore();
+  const [isCreating, setIsCreating] = useState(false);
+  
+  // 创建新会话
+  const handleCreateSession = async () =&gt; {
+    setIsCreating(true);
+    try {
+      const response = await openclawApiService.createSession('新会话');
+      const newSession = {
+        id: response.data.data.id,
+        title: response.data.data.title,
+        createdAt: new Date(response.data.data.createdAt)
+      };
+      
+      addSession(newSession);
+      setCurrentSessionId(newSession.id);
+      setMessages([]);
+      message.success('新会话创建成功');
+    } catch (error: any) {
+      message.error(`创建会话失败: ${error.message}`);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+  
+  // 切换会话
+  const handleSwitchSession = async (sessionId: string) =&gt; {
+    setCurrentSessionId(sessionId);
+    setMessages([]);
+    
+    try {
+      const response = await openclawApiService.getSessionHistory(sessionId);
+      const messages = response.data.data.messages.map((msg: any) =&gt; ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.createdAt)
+      }));
+      setMessages(messages);
+    } catch (error: any) {
+      message.error(`加载会话历史失败: ${error.message}`);
+    }
+  };
+  
+  // 删除会话
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) =&gt; {
+    e.stopPropagation();
+    
+    try {
+      // 这里可以调用后端API删除会话
+      deleteSession(sessionId);
+      message.success('会话删除成功');
+    } catch (error: any) {
+      message.error(`删除会话失败: ${error.message}`);
+    }
+  };
+  
+  return (
+    &lt;div style={{ padding: '16px 0' }}&gt;
+      &lt;Button 
+        type=&quot;primary&quot; 
+        icon={&lt;PlusOutlined /&gt;} 
+        onClick={handleCreateSession}
+        loading={isCreating}
+        style={{ marginBottom: 16, width: '100%' }}
+      &gt;
+        新建会话
+      &lt;/Button&gt;
+      
+      &lt;List
+        dataSource={sessions}
+        renderItem={(session) =&gt; (
+          &lt;List.Item
+            onClick={() =&gt; handleSwitchSession(session.id)}
+            style={{ 
+              cursor: 'pointer',
+              padding: '8px 12px',
+              borderRadius: 4,
+              backgroundColor: session.id === currentSessionId ? '#e6f7ff' : 'transparent',
+              borderLeft: session.id === currentSessionId ? '3px solid #1890ff' : '3px solid transparent'
+            }}
+            actions={[
+              &lt;Popconfirm
+                key=&quot;delete&quot;
+                title=&quot;确定要删除这个会话吗？&quot;
+                onConfirm={(e) =&gt; handleDeleteSession(session.id, e!)}
+                okText=&quot;确定&quot;
+                cancelText=&quot;取消&quot;
+              &gt;
+                &lt;Button type=&quot;text&quot; danger size=&quot;small&quot; icon={&lt;DeleteOutlined /&gt;} /&gt;
+              &lt;/Popconfirm&gt;
+            ]}
+          &gt;
+            &lt;List.Item.Meta
+              title={session.title}
+              description={session.createdAt.toLocaleString()}
+            /&gt;
+          &lt;/List.Item&gt;
+        )}
+      /&gt;
+    &lt;/div&gt;
+  );
+};
+
+export default SessionList;
+</code></pre>
+<h3 id="43-">4.3 更新聊天页面</h3>
+<p>修改<code>src/pages/ChatPage.tsx</code>，集成会话列表：</p>
+<pre><code class="language-tsx">import { useState, useEffect, useRef } from 'react';
+import { Layout, Card, Input, Button, List, Avatar, Spin, Typography, Tag, Empty } from 'antd';
+import { SendOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
+import { openclawApiService } from '../api';
+import { useAppStore } from '../store';
+import SessionList from '../components/SessionList';
+import './ChatPage.css';
+
+const { Sider, Content } = Layout;
+const { Text, Paragraph } = Typography;
+
+const ChatPage = () =&gt; {
+  const { 
+    currentSessionId, 
+    messages, 
+    addMessage, 
+    setMessages, 
+    isLoading, 
+    setIsLoading 
+  } = useAppStore();
+  
+  const [inputValue, setInputValue] = useState('');
+  const messagesEndRef = useRef&lt;HTMLDivElement&gt;(null);
+  
+  // 自动滚动到底部
+  useEffect(() =&gt; {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+  
+  // 处理发送消息
+  const handleSend = async () =&gt; {
+    if (!inputValue.trim() || !currentSessionId || isLoading) return;
+    
+    const userMessage = {
+      id: Date.now().toString(),
+      role: 'user' as const,
+      content: inputValue.trim(),
+      timestamp: new Date(),
+    };
+    
+    addMessage(userMessage);
+    setInputValue('');
+    setIsLoading(true);
+    
+    try {
+      // 发送消息并获取流式响应
+      const response = await fetch(`http://localhost:18789/api/sessions/${currentSessionId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content: userMessage.content,
+          stream: true,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('请求失败');
+      }
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      
+      // 创建一个空的助手消息
+      const assistantMessageId = (Date.now() + 1).toString();
+      addMessage({
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      });
+      
+      // 读取流式响应
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line =&gt; line.trim() !== '');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                assistantContent += parsed.content;
+                
+                // 更新助手消息
+                setMessages(prev =&gt; prev.map(msg =&gt; 
+                  msg.id === assistantMessageId 
+                    ? { ...msg, content: assistantContent }
+                    : msg
+                ));
+              }
+            } catch (e) {
+              console.error('解析响应失败:', e);
+            }
+          }
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('发送消息失败:', error);
+      addMessage({
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `抱歉，发生了一个错误: ${error.message}`,
+        timestamp: new Date(),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // 处理回车键发送
+  const handleKeyPress = (e: React.KeyboardEvent) =&gt; {
+    if (e.key === 'Enter' &amp;&amp; !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+  
+  return (
+    &lt;Layout style={{ height: 'calc(100vh - 120px)' }}&gt;
+      &lt;Sider width={250} style={{ background: '#fff', borderRight: '1px solid #f0f0f0' }}&gt;
+        &lt;div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}&gt;
+          &lt;h3 style={{ margin: 0 }}&gt;会话列表&lt;/h3&gt;
+        &lt;/div&gt;
+        &lt;SessionList /&gt;
+      &lt;/Sider&gt;
+      
+      &lt;Content&gt;
+        &lt;Card 
+          title=&quot;智能问答&quot; 
+          style={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 0 }}
+        &gt;
+          &lt;div className=&quot;chat-messages&quot; style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}&gt;
+            {!currentSessionId ? (
+              &lt;Empty 
+                description=&quot;请创建或选择一个会话开始对话&quot; 
+                style={{ marginTop: 100 }}
+              /&gt;
+            ) : messages.length === 0 ? (
+              &lt;Empty 
+                description=&quot;开始与知识库对话吧！&quot; 
+                style={{ marginTop: 100 }}
+              /&gt;
+            ) : (
+              &lt;List
+                dataSource={messages}
+                renderItem={(message) =&gt; (
+                  &lt;div 
+                    className={`message-item ${message.role}`}
+                    style={{ 
+                      display: 'flex', 
+                      marginBottom: 16,
+                      justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start'
+                    }}
+                  &gt;
+                    {message.role === 'assistant' &amp;&amp; (
+                      &lt;Avatar icon={&lt;RobotOutlined /&gt;} style={{ marginRight: 12, backgroundColor: '#1890ff' }} /&gt;
+                    )}
+                    
+                    &lt;div 
+                      className=&quot;message-content&quot;
+                      style={{ 
+                        maxWidth: '70%',
+                        padding: '12px 16px',
+                        borderRadius: 8,
+                        backgroundColor: message.role === 'user' ? '#1890ff' : '#f0f0f0',
+                        color: message.role === 'user' ? '#fff' : '#000'
+                      }}
+                    &gt;
+                      &lt;Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}&gt;
+                        {message.content}
+                      &lt;/Paragraph&gt;
+                      
+                      {message.sources &amp;&amp; message.sources.length &gt; 0 &amp;&amp; (
+                        &lt;div style={{ marginTop: 8 }}&gt;
+                          &lt;Text type=&quot;secondary&quot; style={{ fontSize: 12 }}&gt;引用来源:&lt;/Text&gt;
+                          {message.sources.map((source: any, index: number) =&gt; (
+                            &lt;Tag key={index} size=&quot;small&quot; style={{ marginLeft: 4 }}&gt;
+                              {source.metadata?.fileName || '未知'}
+                            &lt;/Tag&gt;
+                          ))}
+                        &lt;/div&gt;
+                      )}
+                    &lt;/div&gt;
+                    
+                    {message.role === 'user' &amp;&amp; (
+                      &lt;Avatar icon={&lt;UserOutlined /&gt;} style={{ marginLeft: 12, backgroundColor: '#52c41a' }} /&gt;
+                    )}
+                  &lt;/div&gt;
+                )}
+              /&gt;
+            )}
+            
+            {isLoading &amp;&amp; messages.length &gt; 0 &amp;&amp; messages[messages.length - 1].role === 'user' &amp;&amp; (
+              &lt;div style={{ display: 'flex', marginBottom: 16 }}&gt;
+                &lt;Avatar icon={&lt;RobotOutlined /&gt;} style={{ marginRight: 12, backgroundColor: '#1890ff' }} /&gt;
+                &lt;div style={{ padding: '12px 16px', borderRadius: 8, backgroundColor: '#f0f0f0' }}&gt;
+                  &lt;Spin size=&quot;small&quot; /&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            )}
+            
+            &lt;div ref={messagesEndRef} /&gt;
+          &lt;/div&gt;
+          
+          &lt;div className=&quot;chat-input&quot; style={{ display: 'flex', gap: 8 }}&gt;
+            &lt;Input.TextArea
+              value={inputValue}
+              onChange={(e) =&gt; setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder=&quot;输入你的问题...&quot;
+              autoSize={{ minRows: 1, maxRows: 4 }}
+              disabled={isLoading || !currentSessionId}
+            /&gt;
+            &lt;Button 
+              type=&quot;primary&quot; 
+              icon={&lt;SendOutlined /&gt;} 
+              onClick={handleSend}
+              loading={isLoading}
+              disabled={!inputValue.trim() || !currentSessionId}
+            &gt;
+              发送
+            &lt;/Button&gt;
+          &lt;/div&gt;
+        &lt;/Card&gt;
+      &lt;/Content&gt;
+    &lt;/Layout&gt;
+  );
+};
+
+export default ChatPage;
+</code></pre>
+<hr />
+<h2 id="5-">5. 用户体验细节优化</h2>
+<h3 id="51-">5.1 引用来源可点击跳转</h3>
+<p>修改<code>src/pages/ChatPage.tsx</code>，让引用来源可以点击跳转到对应的文档：</p>
+<pre><code class="language-tsx">{message.sources &amp;&amp; message.sources.length &gt; 0 &amp;&amp; (
+  &lt;div style={{ marginTop: 8 }}&gt;
+    &lt;Text type=&quot;secondary&quot; style={{ fontSize: 12 }}&gt;引用来源:&lt;/Text&gt;
+    {message.sources.map((source: any, index: number) =&gt; (
+      &lt;Tag 
+        key={index} 
+        size=&quot;small&quot; 
+        style={{ marginLeft: 4, cursor: 'pointer' }}
+        onClick={() =&gt; {
+          // 跳转到文档管理页面并高亮该文档
+          window.location.href = `/?documentId=${source.metadata?.document_id}`;
+        }}
+      &gt;
+        {source.metadata?.fileName || '未知'}
+      &lt;/Tag&gt;
+    ))}
+  &lt;/div&gt;
+)}
+</code></pre>
+<h3 id="52-">5.2 问题建议</h3>
+<p>在聊天页面添加常见问题建议，帮助用户快速开始：</p>
+<pre><code class="language-tsx">{!currentSessionId ? (
+  &lt;Empty 
+    description=&quot;请创建或选择一个会话开始对话&quot; 
+    style={{ marginTop: 100 }}
+  /&gt;
+) : messages.length === 0 ? (
+  &lt;div style={{ textAlign: 'center', marginTop: 100 }}&gt;
+    &lt;Typography.Title level={4}&gt;开始与知识库对话吧！&lt;/Typography.Title&gt;
+    &lt;div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}&gt;
+      &lt;Button 
+        onClick={() =&gt; setInputValue('公司有哪些请假制度？')}
+      &gt;
+        公司有哪些请假制度？
+      &lt;/Button&gt;
+      &lt;Button 
+        onClick={() =&gt; setInputValue('如何申请报销？')}
+      &gt;
+        如何申请报销？
+      &lt;/Button&gt;
+      &lt;Button 
+        onClick={() =&gt; setInputValue('新员工入职流程是什么？')}
+      &gt;
+        新员工入职流程是什么？
+      &lt;/Button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+) : (
+  // ... 消息列表 ...
+)}
+</code></pre>
+<hr />
+<h2 id="6-">6. 测试优化效果</h2>
+<p>现在我们来测试优化后的系统效果：</p>
+<ol>
+<li>
+<p><strong>重启所有服务</strong>：</p>
+<ul>
+<li>FastAPI 后端：<code>cd backend &amp;&amp; uvicorn main:app --reload --port 8000</code></li>
+<li>OpenClaw 网关：<code>cd openclaw &amp;&amp; pnpm run start</code></li>
+<li>React 前端：<code>cd frontend &amp;&amp; pnpm run dev</code></li>
+</ul>
+</li>
+<li>
+<p><strong>测试多轮对话</strong>：</p>
+<ul>
+<li>创建一个新会话</li>
+<li>先问：&ldquo;公司有哪些请假制度？&rdquo;</li>
+<li>然后问：&ldquo;病假工资怎么算？&rdquo;</li>
+<li>系统应该能够理解上下文，不需要你重复说明&quot;公司请假制度中的病假&quot;</li>
+</ul>
+</li>
+<li>
+<p><strong>测试复杂问题</strong>：</p>
+<ul>
+<li>上传一个包含多个主题的长文档</li>
+<li>问一个需要综合多个文档片段才能回答的问题</li>
+<li>系统应该能够检索到所有相关的片段，并给出完整准确的回答</li>
+</ul>
+</li>
+<li>
+<p><strong>测试多会话支持</strong>：</p>
+<ul>
+<li>创建多个会话，分别讨论不同的主题</li>
+<li>在不同会话之间切换，验证会话历史是否正确保存</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="7-">7. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── .env
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── uploads/
+│   ├── utils/
+│   │   ├── text_splitter.py
+│   │   └── document_parser.py
+│   └── services/
+│       ├── vector_service.py
+│       ├── document_service.py
+│       └── chat_service.py
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       ├── document-parser/
+│       └── rag-retrieval/
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    │   ├── api/
+    │   │   └── index.ts
+    │   ├── components/
+    │   │   └── SessionList.tsx
+    │   ├── pages/
+    │   │   ├── DocumentPage.tsx
+    │   │   ├── ChatPage.tsx
+    │   │   ├── SettingsPage.tsx
+    │   │   └── ChatPage.css
+    │   ├── store/
+    │   │   └── index.ts
+    │   ├── utils/
+    │   ├── App.tsx
+    │   ├── App.css
+    │   └── main.tsx
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="8-">8. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>分析了基础RAG系统的局限性，制定了全面的优化方案</li>
+<li>集成了Cohere Rerank实现检索结果重排序，显著提升了回答准确性</li>
+<li>实现了多查询检索和父文档检索，解决了上下文缺失问题</li>
+<li>开发了对话历史压缩和上下文感知查询功能，优化了多轮对话体验</li>
+<li>实现了完整的多会话支持，包括会话创建、切换和删除</li>
+<li>优化了用户体验细节，包括可点击的引用来源和问题建议</li>
+</ul>
+]]></description>
+    </item>
+    <item>
       <title>Web3 全栈开发实战：多链支持与智能钱包集成</title>
       <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanduo-lian-zhi-chi-yu-zhi-neng-qian-bao-ji-cheng/</link>
       <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhanduo-lian-zhi-chi-yu-zhi-neng-qian-bao-ji-cheng/</guid>
@@ -670,6 +1767,2206 @@ export const chainClients = {
 <li>集成 Safe 智能钱包与多签流程</li>
 <li>后端多链事件监听</li>
 </ul>
+]]></description>
+    </item>
+    <item>
+      <title>前端文档管理与智能问答界面开发</title>
+      <link>https://www.xx0-0xx.space/post/qian-duan-wen-dang-guan-li-yu-zhi-neng-wen-da-jie-mian-kai-fa/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/qian-duan-wen-dang-guan-li-yu-zhi-neng-wen-da-jie-mian-kai-fa/</guid>
+      <pubDate>Thu, 02 Apr 2026 12:28:23 +0800</pubDate>
+      <description><![CDATA[<p>在上一篇文章中，我们完成了RAG系统的核心后端开发，集成了Chroma向量数据库，实现了文档向量化、存储和检索功能，并开发了OpenClaw RAG检索技能。这篇文章，我们将开发完整的前端用户界面，包括文档上传、文档管理和智能问答功能，让普通用户也能方便地使用我们的知识库系统。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>优化React前端项目架构，实现API封装和状态管理</li>
+<li>开发文档上传页面，支持拖拽上传、批量上传和进度显示</li>
+<li>实现文档管理页面，支持文档列表展示、搜索和删除</li>
+<li>开发智能问答界面，实现流式输出（打字机效果）和引用来源展示</li>
+<li>完成前后端联调，实现完整的&quot;上传→解析→向量化→问答&quot;用户流程</li>
+</ul>
+<hr />
+<h2 id="1-">1. 前端项目架构优化</h2>
+<p>在开始开发具体功能之前，我们先优化一下前端项目的架构，使其更易于维护和扩展。</p>
+<h3 id="11-">1.1 完善项目目录结构</h3>
+<p>我们将按照功能模块来组织代码，创建以下目录：</p>
+<pre><code class="language-bash">cd frontend
+mkdir -p src/api src/components src/pages src/store src/utils
+</code></pre>
+<p>最终的前端目录结构将是：</p>
+<pre><code>frontend/
+├── src/
+│   ├── api/          # API 接口封装
+│   ├── components/   # 通用组件
+│   ├── pages/        # 页面组件
+│   ├── store/        # 状态管理
+│   ├── utils/        # 工具函数
+│   ├── App.tsx
+│   └── main.tsx
+├── index.html
+├── package.json
+└── tsconfig.json
+</code></pre>
+<h3 id="12-api-">1.2 API 接口封装</h3>
+<p>创建 <code>src/api/index.ts</code>，封装所有后端 API 接口：</p>
+<pre><code class="language-typescript">import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:8000/api';
+const OPENCLAW_BASE_URL = 'http://localhost:18789/api';
+
+// 创建 axios 实例
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+const openclawApi = axios.create({
+  baseURL: OPENCLAW_BASE_URL,
+  timeout: 60000,
+});
+
+// 文档相关接口
+export const documentApi = {
+  // 上传文档
+  upload: (file: File, onProgress?: (progress: number) =&gt; void) =&gt; {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return api.post('/documents/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) =&gt; {
+        if (onProgress &amp;&amp; progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
+    });
+  },
+  
+  // 获取文档列表
+  getList: () =&gt; api.get('/documents'),
+  
+  // 删除文档
+  delete: (documentId: string) =&gt; api.delete(`/documents/${documentId}`),
+};
+
+// 向量相关接口
+export const vectorApi = {
+  // 搜索文档
+  search: (query: string, topK: number = 5) =&gt; 
+    api.post('/vector/search', { query, top_k: topK }),
+};
+
+// OpenClaw 相关接口
+export const openclawApiService = {
+  // 创建会话
+  createSession: (title: string = '新会话') =&gt; 
+    openclawApi.post('/sessions', { title }),
+  
+  // 发送消息
+  sendMessage: (sessionId: string, content: string, stream: boolean = false) =&gt; 
+    openclawApi.post(`/sessions/${sessionId}/messages`, {
+      role: 'user',
+      content,
+      stream,
+    }),
+  
+  // 获取会话历史
+  getSessionHistory: (sessionId: string) =&gt; 
+    openclawApi.get(`/sessions/${sessionId}/messages`),
+};
+
+export default api;
+</code></pre>
+<h3 id="13-">1.3 状态管理配置</h3>
+<p>我们使用 Zustand 进行状态管理，创建 <code>src/store/index.ts</code>：</p>
+<pre><code class="language-typescript">import { create } from 'zustand';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: any[];
+  timestamp: Date;
+}
+
+interface AppState {
+  // 会话状态
+  sessionId: string | null;
+  messages: Message[];
+  isLoading: boolean;
+  
+  // 文档状态
+  documents: any[];
+  isUploading: boolean;
+  uploadProgress: number;
+  
+  // 方法
+  setSessionId: (id: string | null) =&gt; void;
+  addMessage: (message: Message) =&gt; void;
+  setMessages: (messages: Message[]) =&gt; void;
+  setIsLoading: (loading: boolean) =&gt; void;
+  setDocuments: (documents: any[]) =&gt; void;
+  setIsUploading: (uploading: boolean) =&gt; void;
+  setUploadProgress: (progress: number) =&gt; void;
+  clearMessages: () =&gt; void;
+}
+
+export const useAppStore = create&lt;AppState&gt;((set) =&gt; ({
+  sessionId: null,
+  messages: [],
+  isLoading: false,
+  documents: [],
+  isUploading: false,
+  uploadProgress: 0,
+  
+  setSessionId: (id) =&gt; set({ sessionId: id }),
+  addMessage: (message) =&gt; set((state) =&gt; ({ 
+    messages: [...state.messages, message] 
+  })),
+  setMessages: (messages) =&gt; set({ messages }),
+  setIsLoading: (loading) =&gt; set({ isLoading: loading }),
+  setDocuments: (documents) =&gt; set({ documents }),
+  setIsUploading: (uploading) =&gt; set({ isUploading: uploading }),
+  setUploadProgress: (progress) =&gt; set({ uploadProgress: progress }),
+  clearMessages: () =&gt; set({ messages: [] }),
+}));
+</code></pre>
+<h3 id="14-">1.4 路由配置</h3>
+<p>安装 React Router：</p>
+<pre><code class="language-bash">pnpm add react-router-dom
+</code></pre>
+<p>创建 <code>src/App.tsx</code>，配置路由：</p>
+<pre><code class="language-tsx">import { BrowserRouter as Router, Routes, Route, Layout } from 'react-router-dom';
+import { Layout, Menu } from 'antd';
+import { FileOutlined, MessageOutlined, SettingOutlined } from '@ant-design/icons';
+import DocumentPage from './pages/DocumentPage';
+import ChatPage from './pages/ChatPage';
+import SettingsPage from './pages/SettingsPage';
+import './App.css';
+
+const { Header, Sider, Content } = Layout;
+
+function App() {
+  return (
+    &lt;Router&gt;
+      &lt;Layout style={{ minHeight: '100vh' }}&gt;
+        &lt;Header style={{ background: '#fff', padding: '0 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}&gt;
+          &lt;h1 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}&gt;企业级智能知识库&lt;/h1&gt;
+        &lt;/Header&gt;
+        &lt;Layout&gt;
+          &lt;Sider width={200} style={{ background: '#fff' }}&gt;
+            &lt;Menu
+              mode=&quot;inline&quot;
+              defaultSelectedKeys={['documents']}
+              style={{ height: '100%', borderRight: 0 }}
+              items={[
+                {
+                  key: 'documents',
+                  icon: &lt;FileOutlined /&gt;,
+                  label: '文档管理',
+                  path: '/',
+                },
+                {
+                  key: 'chat',
+                  icon: &lt;MessageOutlined /&gt;,
+                  label: '智能问答',
+                  path: '/chat',
+                },
+                {
+                  key: 'settings',
+                  icon: &lt;SettingOutlined /&gt;,
+                  label: '系统设置',
+                  path: '/settings',
+                },
+              ]}
+            /&gt;
+          &lt;/Sider&gt;
+          &lt;Content style={{ padding: '24px', background: '#f5f5f5' }}&gt;
+            &lt;Routes&gt;
+              &lt;Route path=&quot;/&quot; element={&lt;DocumentPage /&gt;} /&gt;
+              &lt;Route path=&quot;/chat&quot; element={&lt;ChatPage /&gt;} /&gt;
+              &lt;Route path=&quot;/settings&quot; element={&lt;SettingsPage /&gt;} /&gt;
+            &lt;/Routes&gt;
+          &lt;/Content&gt;
+        &lt;/Layout&gt;
+      &lt;/Layout&gt;
+    &lt;/Router&gt;
+  );
+}
+
+export default App;
+</code></pre>
+<hr />
+<h2 id="2-">2. 后端文档上传接口补充</h2>
+<p>在开发前端上传功能之前，我们需要先在 FastAPI 后端补充文档上传接口。</p>
+<h3 id="21-">2.1 安装依赖</h3>
+<pre><code class="language-bash">cd ../backend
+source venv/bin/activate  # Windows 使用 venv\Scripts\activate
+pip install python-multipart aiofiles
+</code></pre>
+<h3 id="22-">2.2 创建文件存储目录</h3>
+<pre><code class="language-bash">mkdir uploads
+</code></pre>
+<h3 id="23-">2.3 实现文档上传接口</h3>
+<p>创建 <code>services/document_service.py</code>：</p>
+<pre><code class="language-python">import os
+import uuid
+from fastapi import UploadFile
+from datetime import datetime
+from services.vector_service import vector_service
+from utils.document_parser import parse_document
+
+class DocumentService:
+    def __init__(self):
+        self.upload_dir = &quot;./uploads&quot;
+        os.makedirs(self.upload_dir, exist_ok=True)
+        
+        # 支持的文件格式
+        self.supported_formats = {
+            '.txt': 'text/plain',
+            '.md': 'text/markdown',
+            '.pdf': 'application/pdf',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        }
+    
+    async def upload_document(self, file: UploadFile) -&gt; dict:
+        &quot;&quot;&quot;
+        上传并处理文档
+        &quot;&quot;&quot;
+        # 检查文件格式
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in self.supported_formats:
+            raise Exception(f&quot;不支持的文件格式: {file_ext}&quot;)
+        
+        # 生成唯一文件名
+        document_id = str(uuid.uuid4())
+        file_path = os.path.join(self.upload_dir, f&quot;{document_id}{file_ext}&quot;)
+        
+        # 保存文件
+        with open(file_path, &quot;wb&quot;) as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        try:
+            # 解析文档内容
+            content = parse_document(file_path, file_ext[1:])
+            
+            # 添加到向量数据库
+            metadata = {
+                &quot;fileName&quot;: file.filename,
+                &quot;fileSize&quot;: os.path.getsize(file_path),
+                &quot;format&quot;: file_ext[1:],
+                &quot;uploadTime&quot;: datetime.now().isoformat()
+            }
+            
+            vector_result = vector_service.add_document(
+                document_id=document_id,
+                content=content,
+                metadata=metadata
+            )
+            
+            return {
+                &quot;document_id&quot;: document_id,
+                &quot;file_name&quot;: file.filename,
+                &quot;file_size&quot;: os.path.getsize(file_path),
+                &quot;format&quot;: file_ext[1:],
+                &quot;chunk_count&quot;: vector_result[&quot;chunk_count&quot;],
+                &quot;upload_time&quot;: datetime.now().isoformat(),
+                &quot;success&quot;: True
+            }
+            
+        except Exception as e:
+            # 如果处理失败，删除已保存的文件
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            raise e
+    
+    def get_all_documents(self) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        获取所有文档列表
+        &quot;&quot;&quot;
+        # 这里简化处理，实际项目中应该从数据库获取
+        # 我们可以从向量数据库中获取所有唯一的 document_id
+        all_ids = vector_service.collection.get()[&quot;ids&quot;]
+        document_ids = set()
+        for id in all_ids:
+            doc_id = id.split(&quot;_chunk_&quot;)[0]
+            document_ids.add(doc_id)
+        
+        documents = []
+        for doc_id in document_ids:
+            # 获取该文档的第一个块的元数据
+            result = vector_service.collection.get(
+                where={&quot;document_id&quot;: doc_id},
+                limit=1
+            )
+            if result[&quot;metadatas&quot;] and len(result[&quot;metadatas&quot;]) &gt; 0:
+                metadata = result[&quot;metadatas&quot;][0]
+                documents.append({
+                    &quot;document_id&quot;: doc_id,
+                    &quot;file_name&quot;: metadata.get(&quot;fileName&quot;, &quot;未知&quot;),
+                    &quot;file_size&quot;: metadata.get(&quot;fileSize&quot;, 0),
+                    &quot;format&quot;: metadata.get(&quot;format&quot;, &quot;未知&quot;),
+                    &quot;upload_time&quot;: metadata.get(&quot;uploadTime&quot;, &quot;未知&quot;),
+                    &quot;chunk_count&quot;: metadata.get(&quot;chunk_count&quot;, 0)
+                })
+        
+        return documents
+    
+    def delete_document(self, document_id: str) -&gt; dict:
+        &quot;&quot;&quot;
+        删除文档
+        &quot;&quot;&quot;
+        # 从向量数据库删除
+        vector_result = vector_service.delete_document(document_id)
+        
+        # 删除本地文件
+        file_path = os.path.join(self.upload_dir, f&quot;{document_id}.*&quot;)
+        # 这里简化处理，实际应该遍历目录删除
+        # ...
+        
+        return vector_result
+
+# 创建全局实例
+document_service = DocumentService()
+</code></pre>
+<p>创建 <code>utils/document_parser.py</code>：</p>
+<pre><code class="language-python">import os
+from PyPDF2 import PdfReader
+from docx import Document
+
+def parse_document(file_path: str, format: str) -&gt; str:
+    &quot;&quot;&quot;
+    解析不同格式的文档，提取纯文本内容
+    &quot;&quot;&quot;
+    if format == 'txt' or format == 'md':
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    
+    elif format == 'pdf':
+        reader = PdfReader(file_path)
+        text = &quot;&quot;
+        for page in reader.pages:
+            text += page.extract_text() + &quot;\n&quot;
+        return text
+    
+    elif format == 'docx':
+        doc = Document(file_path)
+        text = &quot;&quot;
+        for para in doc.paragraphs:
+            text += para.text + &quot;\n&quot;
+        return text
+    
+    else:
+        raise Exception(f&quot;不支持的文件格式: {format}&quot;)
+</code></pre>
+<h3 id="24--api-">2.4 添加 API 接口</h3>
+<p>修改 <code>main.py</code>，添加文档相关接口：</p>
+<pre><code class="language-python">from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from services.vector_service import vector_service
+from services.document_service import document_service
+
+# ... 保留之前的代码 ...
+
+@app.post(&quot;/api/documents/upload&quot;)
+async def upload_document(file: UploadFile = File(...)):
+    try:
+        result = await document_service.upload_document(file)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get(&quot;/api/documents&quot;)
+async def get_documents():
+    try:
+        documents = document_service.get_all_documents()
+        return {&quot;documents&quot;: documents, &quot;count&quot;: len(documents)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete(&quot;/api/documents/{document_id}&quot;)
+async def delete_document(document_id: str):
+    try:
+        result = document_service.delete_document(document_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+</code></pre>
+<hr />
+<h2 id="3-">3. 前端文档上传与管理页面开发</h2>
+<p>现在我们来开发前端的文档上传和管理页面。</p>
+<h3 id="31-">3.1 文档上传页面</h3>
+<p>创建 <code>src/pages/DocumentPage.tsx</code>：</p>
+<pre><code class="language-tsx">import { useState, useEffect } from 'react';
+import { Card, Upload, Button, Table, message, Progress, Space, Popconfirm } from 'antd';
+import { UploadOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { documentApi } from '../api';
+import { useAppStore } from '../store';
+
+const { Dragger } = Upload;
+
+const DocumentPage = () =&gt; {
+  const { documents, setDocuments, isUploading, setIsUploading, uploadProgress, setUploadProgress } = useAppStore();
+  const [fileList, setFileList] = useState&lt;any[]&gt;([]);
+  
+  // 加载文档列表
+  const loadDocuments = async () =&gt; {
+    try {
+      const response = await documentApi.getList();
+      setDocuments(response.data.documents);
+    } catch (error: any) {
+      message.error(`加载文档列表失败: ${error.message}`);
+    }
+  };
+  
+  useEffect(() =&gt; {
+    loadDocuments();
+  }, []);
+  
+  // 处理文件上传
+  const handleUpload = async (options: any) =&gt; {
+    const { file, onSuccess, onError, onProgress } = options;
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const response = await documentApi.upload(file, (progress) =&gt; {
+        setUploadProgress(progress);
+        onProgress({ percent: progress });
+      });
+      
+      message.success(`${file.name} 上传成功`);
+      onSuccess(response.data);
+      loadDocuments(); // 重新加载文档列表
+      
+    } catch (error: any) {
+      message.error(`${file.name} 上传失败: ${error.message}`);
+      onError(error);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+  
+  // 处理删除文档
+  const handleDelete = async (documentId: string) =&gt; {
+    try {
+      await documentApi.delete(documentId);
+      message.success('文档删除成功');
+      loadDocuments(); // 重新加载文档列表
+    } catch (error: any) {
+      message.error(`删除失败: ${error.message}`);
+    }
+  };
+  
+  // 表格列定义
+  const columns = [
+    {
+      title: '文件名',
+      dataIndex: 'file_name',
+      key: 'file_name',
+    },
+    {
+      title: '格式',
+      dataIndex: 'format',
+      key: 'format',
+      width: 80,
+    },
+    {
+      title: '大小',
+      dataIndex: 'file_size',
+      key: 'file_size',
+      width: 100,
+      render: (size: number) =&gt; `${(size / 1024).toFixed(2)} KB`,
+    },
+    {
+      title: '分块数',
+      dataIndex: 'chunk_count',
+      key: 'chunk_count',
+      width: 80,
+    },
+    {
+      title: '上传时间',
+      dataIndex: 'upload_time',
+      key: 'upload_time',
+      width: 180,
+      render: (time: string) =&gt; new Date(time).toLocaleString(),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 80,
+      render: (_: any, record: any) =&gt; (
+        &lt;Popconfirm
+          title=&quot;确定要删除这个文档吗？&quot;
+          onConfirm={() =&gt; handleDelete(record.document_id)}
+          okText=&quot;确定&quot;
+          cancelText=&quot;取消&quot;
+        &gt;
+          &lt;Button type=&quot;text&quot; danger icon={&lt;DeleteOutlined /&gt;} /&gt;
+        &lt;/Popconfirm&gt;
+      ),
+    },
+  ];
+  
+  return (
+    &lt;div&gt;
+      &lt;Card title=&quot;文档上传&quot; style={{ marginBottom: 24 }}&gt;
+        &lt;Dragger
+          name=&quot;file&quot;
+          multiple={true}
+          customRequest={handleUpload}
+          fileList={fileList}
+          onChange={({ fileList }) =&gt; setFileList(fileList)}
+          accept=&quot;.txt,.md,.pdf,.docx&quot;
+          disabled={isUploading}
+        &gt;
+          &lt;p className=&quot;ant-upload-drag-icon&quot;&gt;
+            &lt;UploadOutlined /&gt;
+          &lt;/p&gt;
+          &lt;p className=&quot;ant-upload-text&quot;&gt;点击或拖拽文件到此处上传&lt;/p&gt;
+          &lt;p className=&quot;ant-upload-hint&quot;&gt;
+            支持 TXT、Markdown、PDF、Word 格式，单个文件不超过 10MB
+          &lt;/p&gt;
+        &lt;/Dragger&gt;
+        
+        {isUploading &amp;&amp; (
+          &lt;div style={{ marginTop: 16 }}&gt;
+            &lt;Progress percent={uploadProgress} status=&quot;active&quot; /&gt;
+          &lt;/div&gt;
+        )}
+      &lt;/Card&gt;
+      
+      &lt;Card 
+        title=&quot;文档管理&quot; 
+        extra={
+          &lt;Button 
+            icon={&lt;ReloadOutlined /&gt;} 
+            onClick={loadDocuments}
+          &gt;
+            刷新
+          &lt;/Button&gt;
+        }
+      &gt;
+        &lt;Table 
+          columns={columns} 
+          dataSource={documents} 
+          rowKey=&quot;document_id&quot;
+          pagination={{ pageSize: 10 }}
+        /&gt;
+      &lt;/Card&gt;
+    &lt;/div&gt;
+  );
+};
+
+export default DocumentPage;
+</code></pre>
+<h3 id="32-">3.2 简单的设置页面</h3>
+<p>创建 <code>src/pages/SettingsPage.tsx</code>：</p>
+<pre><code class="language-tsx">import { Card, Form, Input, Select, Button, message } from 'antd';
+
+const SettingsPage = () =&gt; {
+  const [form] = Form.useForm();
+  
+  const handleSubmit = (values: any) =&gt; {
+    console.log('设置值:', values);
+    message.success('设置保存成功');
+  };
+  
+  return (
+    &lt;Card title=&quot;系统设置&quot;&gt;
+      &lt;Form
+        form={form}
+        layout=&quot;vertical&quot;
+        onFinish={handleSubmit}
+        initialValues={{
+          model: 'claude-3-sonnet-20240229',
+          topK: 5,
+          temperature: 0.7,
+        }}
+      &gt;
+        &lt;Form.Item
+          name=&quot;model&quot;
+          label=&quot;大语言模型&quot;
+          rules={[{ required: true, message: '请选择大语言模型' }]}
+        &gt;
+          &lt;Select&gt;
+            &lt;Select.Option value=&quot;claude-3-sonnet-20240229&quot;&gt;Claude 3 Sonnet&lt;/Select.Option&gt;
+            &lt;Select.Option value=&quot;claude-3-opus-20240229&quot;&gt;Claude 3 Opus&lt;/Select.Option&gt;
+            &lt;Select.Option value=&quot;gpt-4o&quot;&gt;GPT-4o&lt;/Select.Option&gt;
+          &lt;/Select&gt;
+        &lt;/Form.Item&gt;
+        
+        &lt;Form.Item
+          name=&quot;topK&quot;
+          label=&quot;检索结果数量&quot;
+          rules={[{ required: true, message: '请输入检索结果数量' }]}
+        &gt;
+          &lt;Input type=&quot;number&quot; min={1} max={20} /&gt;
+        &lt;/Form.Item&gt;
+        
+        &lt;Form.Item
+          name=&quot;temperature&quot;
+          label=&quot;温度系数&quot;
+          rules={[{ required: true, message: '请输入温度系数' }]}
+        &gt;
+          &lt;Input type=&quot;number&quot; min={0} max={2} step={0.1} /&gt;
+        &lt;/Form.Item&gt;
+        
+        &lt;Form.Item&gt;
+          &lt;Button type=&quot;primary&quot; htmlType=&quot;submit&quot;&gt;
+            保存设置
+          &lt;/Button&gt;
+        &lt;/Form.Item&gt;
+      &lt;/Form&gt;
+    &lt;/Card&gt;
+  );
+};
+
+export default SettingsPage;
+</code></pre>
+<hr />
+<h2 id="4-">4. 智能问答界面开发</h2>
+<p>现在我们来开发最核心的智能问答界面，实现流式输出和引用来源展示。</p>
+<h3 id="41-">4.1 聊天界面组件</h3>
+<p>创建 <code>src/pages/ChatPage.tsx</code>：</p>
+<pre><code class="language-tsx">import { useState, useEffect, useRef } from 'react';
+import { Card, Input, Button, List, Avatar, Spin, Typography, Tag, Empty } from 'antd';
+import { SendOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
+import { openclawApiService } from '../api';
+import { useAppStore } from '../store';
+import './ChatPage.css';
+
+const { Text, Paragraph } = Typography;
+
+const ChatPage = () =&gt; {
+  const { sessionId, messages, setSessionId, addMessage, setMessages, isLoading, setIsLoading } = useAppStore();
+  const [inputValue, setInputValue] = useState('');
+  const messagesEndRef = useRef&lt;HTMLDivElement&gt;(null);
+  
+  // 初始化会话
+  useEffect(() =&gt; {
+    const initSession = async () =&gt; {
+      try {
+        const response = await openclawApiService.createSession('知识库会话');
+        setSessionId(response.data.data.id);
+      } catch (error: any) {
+        console.error('创建会话失败:', error);
+      }
+    };
+    
+    if (!sessionId) {
+      initSession();
+    }
+  }, [sessionId, setSessionId]);
+  
+  // 自动滚动到底部
+  useEffect(() =&gt; {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+  
+  // 处理发送消息
+  const handleSend = async () =&gt; {
+    if (!inputValue.trim() || !sessionId || isLoading) return;
+    
+    const userMessage = {
+      id: Date.now().toString(),
+      role: 'user' as const,
+      content: inputValue.trim(),
+      timestamp: new Date(),
+    };
+    
+    addMessage(userMessage);
+    setInputValue('');
+    setIsLoading(true);
+    
+    try {
+      // 发送消息并获取流式响应
+      const response = await fetch(`http://localhost:18789/api/sessions/${sessionId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content: userMessage.content,
+          stream: true,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('请求失败');
+      }
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      
+      // 创建一个空的助手消息
+      const assistantMessageId = (Date.now() + 1).toString();
+      addMessage({
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      });
+      
+      // 读取流式响应
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line =&gt; line.trim() !== '');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                assistantContent += parsed.content;
+                
+                // 更新助手消息
+                setMessages(prev =&gt; prev.map(msg =&gt; 
+                  msg.id === assistantMessageId 
+                    ? { ...msg, content: assistantContent }
+                    : msg
+                ));
+              }
+            } catch (e) {
+              console.error('解析响应失败:', e);
+            }
+          }
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('发送消息失败:', error);
+      addMessage({
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `抱歉，发生了一个错误: ${error.message}`,
+        timestamp: new Date(),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // 处理回车键发送
+  const handleKeyPress = (e: React.KeyboardEvent) =&gt; {
+    if (e.key === 'Enter' &amp;&amp; !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+  
+  return (
+    &lt;Card 
+      title=&quot;智能问答&quot; 
+      style={{ height: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}
+    &gt;
+      &lt;div className=&quot;chat-messages&quot; style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}&gt;
+        {messages.length === 0 ? (
+          &lt;Empty 
+            description=&quot;开始与知识库对话吧！&quot; 
+            style={{ marginTop: 100 }}
+          /&gt;
+        ) : (
+          &lt;List
+            dataSource={messages}
+            renderItem={(message) =&gt; (
+              &lt;div 
+                className={`message-item ${message.role}`}
+                style={{ 
+                  display: 'flex', 
+                  marginBottom: 16,
+                  justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start'
+                }}
+              &gt;
+                {message.role === 'assistant' &amp;&amp; (
+                  &lt;Avatar icon={&lt;RobotOutlined /&gt;} style={{ marginRight: 12, backgroundColor: '#1890ff' }} /&gt;
+                )}
+                
+                &lt;div 
+                  className=&quot;message-content&quot;
+                  style={{ 
+                    maxWidth: '70%',
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    backgroundColor: message.role === 'user' ? '#1890ff' : '#f0f0f0',
+                    color: message.role === 'user' ? '#fff' : '#000'
+                  }}
+                &gt;
+                  &lt;Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}&gt;
+                    {message.content}
+                  &lt;/Paragraph&gt;
+                  
+                  {message.sources &amp;&amp; message.sources.length &gt; 0 &amp;&amp; (
+                    &lt;div style={{ marginTop: 8 }}&gt;
+                      &lt;Text type=&quot;secondary&quot; style={{ fontSize: 12 }}&gt;引用来源:&lt;/Text&gt;
+                      {message.sources.map((source: any, index: number) =&gt; (
+                        &lt;Tag key={index} size=&quot;small&quot; style={{ marginLeft: 4 }}&gt;
+                          {source.metadata?.fileName || '未知'}
+                        &lt;/Tag&gt;
+                      ))}
+                    &lt;/div&gt;
+                  )}
+                &lt;/div&gt;
+                
+                {message.role === 'user' &amp;&amp; (
+                  &lt;Avatar icon={&lt;UserOutlined /&gt;} style={{ marginLeft: 12, backgroundColor: '#52c41a' }} /&gt;
+                )}
+              &lt;/div&gt;
+            )}
+          /&gt;
+        )}
+        
+        {isLoading &amp;&amp; messages.length &gt; 0 &amp;&amp; messages[messages.length - 1].role === 'user' &amp;&amp; (
+          &lt;div style={{ display: 'flex', marginBottom: 16 }}&gt;
+            &lt;Avatar icon={&lt;RobotOutlined /&gt;} style={{ marginRight: 12, backgroundColor: '#1890ff' }} /&gt;
+            &lt;div style={{ padding: '12px 16px', borderRadius: 8, backgroundColor: '#f0f0f0' }}&gt;
+              &lt;Spin size=&quot;small&quot; /&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        )}
+        
+        &lt;div ref={messagesEndRef} /&gt;
+      &lt;/div&gt;
+      
+      &lt;div className=&quot;chat-input&quot; style={{ display: 'flex', gap: 8 }}&gt;
+        &lt;Input.TextArea
+          value={inputValue}
+          onChange={(e) =&gt; setInputValue(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder=&quot;输入你的问题...&quot;
+          autoSize={{ minRows: 1, maxRows: 4 }}
+          disabled={isLoading || !sessionId}
+        /&gt;
+        &lt;Button 
+          type=&quot;primary&quot; 
+          icon={&lt;SendOutlined /&gt;} 
+          onClick={handleSend}
+          loading={isLoading}
+          disabled={!inputValue.trim() || !sessionId}
+        &gt;
+          发送
+        &lt;/Button&gt;
+      &lt;/div&gt;
+    &lt;/Card&gt;
+  );
+};
+
+export default ChatPage;
+</code></pre>
+<p>创建 <code>src/pages/ChatPage.css</code>：</p>
+<pre><code class="language-css">.message-item.user .message-content {
+  border-bottom-right-radius: 0;
+}
+
+.message-item.assistant .message-content {
+  border-bottom-left-radius: 0;
+}
+</code></pre>
+<hr />
+<h2 id="5-">5. 测试完整用户流程</h2>
+<p>现在我们来测试完整的用户流程：</p>
+<ol>
+<li>
+<p><strong>启动所有服务</strong>：</p>
+<ul>
+<li>FastAPI 后端：<code>cd backend &amp;&amp; uvicorn main:app --reload --port 8000</code></li>
+<li>OpenClaw 网关：<code>cd openclaw &amp;&amp; pnpm run start</code></li>
+<li>React 前端：<code>cd frontend &amp;&amp; pnpm run dev</code></li>
+</ul>
+</li>
+<li>
+<p><strong>上传文档</strong>：</p>
+<ul>
+<li>打开前端页面 <code>http://localhost:5173</code></li>
+<li>进入&quot;文档管理&quot;页面</li>
+<li>拖拽或点击上传一个测试文档（如之前的员工请假制度.md）</li>
+<li>等待上传完成，文档会自动解析并向量化</li>
+</ul>
+</li>
+<li>
+<p><strong>智能问答</strong>：</p>
+<ul>
+<li>进入&quot;智能问答&quot;页面</li>
+<li>输入问题：&ldquo;员工每年有多少天带薪年假？&rdquo;</li>
+<li>点击发送，你会看到 OpenClaw 自动调用 RAG 检索技能，然后基于检索结果给出回答</li>
+<li>回答会以流式方式显示，就像打字一样</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="6-">6. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── .env
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── uploads/
+│   ├── utils/
+│   │   ├── text_splitter.py
+│   │   └── document_parser.py
+│   └── services/
+│       ├── vector_service.py
+│       └── document_service.py
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       ├── document-parser/
+│       └── rag-retrieval/
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    │   ├── api/
+    │   │   └── index.ts
+    │   ├── components/
+    │   ├── pages/
+    │   │   ├── DocumentPage.tsx
+    │   │   ├── ChatPage.tsx
+    │   │   ├── SettingsPage.tsx
+    │   │   └── ChatPage.css
+    │   ├── store/
+    │   │   └── index.ts
+    │   ├── utils/
+    │   ├── App.tsx
+    │   ├── App.css
+    │   └── main.tsx
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="7-">7. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>优化了 React 前端项目架构，实现了 API 封装和 Zustand 状态管理</li>
+<li>在 FastAPI 后端补充了文档上传、解析和管理接口</li>
+<li>开发了文档上传页面，支持拖拽上传、批量上传和进度显示</li>
+<li>实现了文档管理页面，支持文档列表展示、搜索和删除</li>
+<li>开发了智能问答界面，实现了流式输出（打字机效果）</li>
+<li>完成了前后端联调，测试了完整的&quot;上传→解析→向量化→问答&quot;用户流程</li>
+</ul>
+]]></description>
+    </item>
+    <item>
+      <title>向量数据库集成与 RAG 检索核心技能开发</title>
+      <link>https://www.xx0-0xx.space/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/</guid>
+      <pubDate>Mon, 30 Mar 2026 08:56:09 +0800</pubDate>
+      <description><![CDATA[<p>在上一篇文章中，我们深入学习了 OpenClaw 的核心机制，开发了多格式文档解析技能，并学会了通过 API 调用 OpenClaw 技能。这篇文章，我们将集成向量数据库 Chroma，开发文档向量化和检索技能，完成 RAG 系统的核心检索模块。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解向量数据库的工作原理与在 RAG 系统中的作用</li>
+<li>掌握 Chroma 向量数据库的安装与基本操作</li>
+<li>在 FastAPI 后端实现文档向量化、存储与检索接口</li>
+<li>开发 OpenClaw RAG 检索技能，实现自动知识检索</li>
+<li>完成完整的&quot;文档上传→解析→向量化→检索→问答&quot;基础流程</li>
+</ul>
+<hr />
+<h2 id="1-rag-">1. 向量数据库：RAG 系统的&quot;知识仓库&quot;</h2>
+<h3 id="11-">1.1 为什么我们需要向量数据库？</h3>
+<p>传统的关系型数据库擅长存储结构化数据和精确匹配查询，但无法处理语义相似性搜索。当用户提问&quot;如何重置密码？&ldquo;时，我们需要找到所有与&quot;密码重置&quot;语义相关的文档片段，而不仅仅是包含这几个关键词的文档。</p>
+<p>向量数据库专门解决这个问题：</p>
+<ul>
+<li>将文本转换为高维向量（Embedding）</li>
+<li>存储这些向量并建立高效的索引</li>
+<li>支持快速的相似度搜索，找到与查询向量最接近的向量</li>
+</ul>
+<h3 id="12--chroma">1.2 为什么选择 Chroma？</h3>
+<p>在众多向量数据库中，我们选择 Chroma 作为本地开发的首选：</p>
+<ul>
+<li><strong>零配置</strong>：无需额外部署服务，直接作为 Python 库使用</li>
+<li><strong>开发友好</strong>：API 简单直观，文档完善</li>
+<li><strong>性能足够</strong>：对于中小规模知识库（百万级向量）完全够用</li>
+<li><strong>开源免费</strong>：MIT 协议，可自由使用和修改</li>
+<li><strong>易于迁移</strong>：如果后续需要扩展，可以轻松迁移到 Pinecone、Weaviate 等生产级向量数据库</li>
+</ul>
+<h3 id="13-">1.3 嵌入模型选择</h3>
+<p>嵌入模型负责将文本转换为向量，它的质量直接影响 RAG 系统的检索效果。我们选择：</p>
+<ul>
+<li><strong>默认</strong>：OpenAI <code>text-embedding-3-small</code>（效果好，价格便宜，速度快）</li>
+<li><strong>备选</strong>：BGE-m3（开源本地模型，效果接近 OpenAI 模型）</li>
+<li><strong>生产环境</strong>：根据预算和性能需求选择合适的模型</li>
+</ul>
+<hr />
+<h2 id="2-fastapi-">2. FastAPI 后端：向量存储与检索接口开发</h2>
+<p>我们将在 FastAPI 后端实现所有向量相关的操作，因为 Python 在 AI 和数据处理方面有最好的生态支持。</p>
+<h3 id="21-">2.1 安装依赖</h3>
+<p>进入 <code>backend</code> 目录，激活虚拟环境，安装所需依赖：</p>
+<pre><code class="language-bash">cd backend
+source venv/bin/activate  # Windows 使用 venv\Scripts\activate
+
+pip install chromadb openai python-dotenv langchain langchain-text-splitters
+</code></pre>
+<p>创建 <code>.env</code> 文件，添加你的 OpenAI API Key：</p>
+<pre><code class="language-env">OPENAI_API_KEY=your-openai-api-key-here
+CHROMA_PERSIST_DIRECTORY=./chroma_db
+</code></pre>
+<h3 id="22-">2.2 文本分块策略</h3>
+<p>在向量化之前，我们需要将长文档拆分成适合模型处理的小块。这是 RAG 系统中最关键的步骤之一，直接影响检索效果。</p>
+<p>我们采用<strong>固定长度分块+重叠</strong>的策略：</p>
+<ul>
+<li>块大小：512 个 token（约 300-400 个汉字）</li>
+<li>重叠大小：50 个 token（确保上下文不被切断）</li>
+</ul>
+<p>创建 <code>utils/text_splitter.py</code>：</p>
+<pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+def split_text(text: str, chunk_size: int = 512, chunk_overlap: int = 50) -&gt; list[str]:
+    &quot;&quot;&quot;
+    将长文本拆分成小块
+    &quot;&quot;&quot;
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+    )
+    
+    chunks = text_splitter.split_text(text)
+    return chunks
+</code></pre>
+<h3 id="23-">2.3 向量数据库服务</h3>
+<p>创建 <code>services/vector_service.py</code>，实现向量的添加、检索和删除功能：</p>
+<pre><code class="language-python">import os
+import chromadb
+from chromadb.utils import embedding_functions
+from dotenv import load_dotenv
+from utils.text_splitter import split_text
+
+load_dotenv()
+
+class VectorService:
+    def __init__(self):
+        self.persist_directory = os.getenv(&quot;CHROMA_PERSIST_DIRECTORY&quot;, &quot;./chroma_db&quot;)
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
+        
+        # 使用 OpenAI 嵌入模型
+        self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=os.getenv(&quot;OPENAI_API_KEY&quot;),
+            model_name=&quot;text-embedding-3-small&quot;
+        )
+        
+        # 获取或创建集合
+        self.collection = self.client.get_or_create_collection(
+            name=&quot;knowledge_base&quot;,
+            embedding_function=self.embedding_function,
+            metadata={&quot;description&quot;: &quot;企业级智能知识库向量集合&quot;}
+        )
+    
+    def add_document(self, document_id: str, content: str, metadata: dict = None) -&gt; dict:
+        &quot;&quot;&quot;
+        添加文档到向量数据库
+        &quot;&quot;&quot;
+        # 拆分文本
+        chunks = split_text(content)
+        
+        # 生成块 ID
+        chunk_ids = [f&quot;{document_id}_chunk_{i}&quot; for i in range(len(chunks))]
+        
+        # 准备元数据
+        chunk_metadatas = []
+        for i, chunk in enumerate(chunks):
+            chunk_metadata = {
+                &quot;document_id&quot;: document_id,
+                &quot;chunk_index&quot;: i,
+                &quot;chunk_count&quot;: len(chunks),
+                &quot;content_preview&quot;: chunk[:100] + &quot;...&quot; if len(chunk) &gt; 100 else chunk
+            }
+            if metadata:
+                chunk_metadata.update(metadata)
+            chunk_metadatas.append(chunk_metadata)
+        
+        # 添加到向量数据库
+        self.collection.add(
+            ids=chunk_ids,
+            documents=chunks,
+            metadatas=chunk_metadatas
+        )
+        
+        return {
+            &quot;document_id&quot;: document_id,
+            &quot;chunk_count&quot;: len(chunks),
+            &quot;success&quot;: True
+        }
+    
+    def search(self, query: str, top_k: int = 5) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        搜索与查询最相关的文档片段
+        &quot;&quot;&quot;
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=top_k
+        )
+        
+        # 格式化结果
+        formatted_results = []
+        for i in range(len(results[&quot;ids&quot;][0])):
+            formatted_results.append({
+                &quot;id&quot;: results[&quot;ids&quot;][0][i],
+                &quot;document&quot;: results[&quot;documents&quot;][0][i],
+                &quot;metadata&quot;: results[&quot;metadatas&quot;][0][i],
+                &quot;distance&quot;: results[&quot;distances&quot;][0][i] if results[&quot;distances&quot;] else None
+            })
+        
+        return formatted_results
+    
+    def delete_document(self, document_id: str) -&gt; dict:
+        &quot;&quot;&quot;
+        删除文档及其所有块
+        &quot;&quot;&quot;
+        # 查找该文档的所有块
+        results = self.collection.get(
+            where={&quot;document_id&quot;: document_id}
+        )
+        
+        if not results[&quot;ids&quot;]:
+            return {
+                &quot;document_id&quot;: document_id,
+                &quot;deleted_count&quot;: 0,
+                &quot;success&quot;: True,
+                &quot;message&quot;: &quot;文档不存在&quot;
+            }
+        
+        # 删除所有块
+        self.collection.delete(ids=results[&quot;ids&quot;])
+        
+        return {
+            &quot;document_id&quot;: document_id,
+            &quot;deleted_count&quot;: len(results[&quot;ids&quot;]),
+            &quot;success&quot;: True
+        }
+
+# 创建全局实例
+vector_service = VectorService()
+</code></pre>
+<h3 id="24--api-">2.4 添加 API 接口</h3>
+<p>修改 <code>main.py</code>，添加向量相关的 API 接口：</p>
+<pre><code class="language-python">from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from services.vector_service import vector_service
+
+app = FastAPI(title=&quot;企业级智能知识库 API&quot;, version=&quot;0.1.0&quot;)
+
+# 配置 CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[&quot;*&quot;],  # 开发环境允许所有来源，生产环境请限制为具体域名
+    allow_credentials=True,
+    allow_methods=[&quot;*&quot;],
+    allow_headers=[&quot;*&quot;],
+)
+
+# 请求模型
+class AddDocumentRequest(BaseModel):
+    document_id: str
+    content: str
+    metadata: dict = None
+
+class SearchRequest(BaseModel):
+    query: str
+    top_k: int = 5
+
+class DeleteDocumentRequest(BaseModel):
+    document_id: str
+
+@app.get(&quot;/&quot;)
+async def root():
+    return {&quot;message&quot;: &quot;企业级智能知识库后端已启动&quot;, &quot;version&quot;: &quot;0.1.0&quot;}
+
+@app.get(&quot;/api/health&quot;)
+async def health_check():
+    return {&quot;status&quot;: &quot;healthy&quot;}
+
+@app.post(&quot;/api/vector/add-document&quot;)
+async def add_document(request: AddDocumentRequest):
+    try:
+        result = vector_service.add_document(
+            document_id=request.document_id,
+            content=request.content,
+            metadata=request.metadata
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post(&quot;/api/vector/search&quot;)
+async def search_documents(request: SearchRequest):
+    try:
+        results = vector_service.search(
+            query=request.query,
+            top_k=request.top_k
+        )
+        return {&quot;results&quot;: results, &quot;count&quot;: len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete(&quot;/api/vector/delete-document&quot;)
+async def delete_document(request: DeleteDocumentRequest):
+    try:
+        result = vector_service.delete_document(document_id=request.document_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+</code></pre>
+<h3 id="25-">2.5 测试接口</h3>
+<p>重启 FastAPI 服务：</p>
+<pre><code class="language-bash">uvicorn main:app --reload --port 8000
+</code></pre>
+<p>打开 <code>http://localhost:8000/docs</code>，使用 Swagger UI 测试接口：</p>
+<ol>
+<li>调用 <code>/api/vector/add-document</code> 添加一个测试文档</li>
+<li>调用 <code>/api/vector/search</code> 搜索相关内容</li>
+<li>验证搜索结果是否符合预期</li>
+</ol>
+<hr />
+<h2 id="3-openclaw-rag-">3. OpenClaw RAG 检索技能开发</h2>
+<p>现在我们来开发 OpenClaw 的 RAG 检索技能，它将调用 FastAPI 的检索接口，为大模型提供相关的知识上下文。</p>
+<h3 id="31--rag-">3.1 创建 RAG 检索技能目录</h3>
+<pre><code class="language-bash">cd ../openclaw
+mkdir skills/rag-retrieval
+</code></pre>
+<h3 id="32-">3.2 编写技能定义文件</h3>
+<p>创建 <code>skills/rag-retrieval/skill.yaml</code>：</p>
+<pre><code class="language-yaml">name: rag-retrieval
+description: 从企业知识库中检索与用户问题相关的文档片段。当用户询问企业内部知识、产品信息、规章制度等问题时，必须先调用此技能获取相关信息。
+author: Your Name
+version: 0.1.0
+category: 知识库
+
+parameters:
+  type: object
+  properties:
+    query:
+      type: string
+      description: 用户的问题，用于检索相关文档
+    top_k:
+      type: integer
+      description: 返回的最相关文档数量
+      default: 5
+      minimum: 1
+      maximum: 20
+  required:
+    - query
+
+returns:
+  type: object
+  properties:
+    success:
+      type: boolean
+      description: 是否检索成功
+    results:
+      type: array
+      description: 检索到的文档片段列表
+      items:
+        type: object
+        properties:
+          document:
+            type: string
+            description: 文档片段内容
+          metadata:
+            type: object
+            description: 文档元数据
+          distance:
+            type: number
+            description: 相似度距离（越小越相似）
+    count:
+      type: integer
+      description: 返回的结果数量
+</code></pre>
+<h3 id="33-">3.3 编写技能执行代码</h3>
+<p>创建 <code>skills/rag-retrieval/index.ts</code>：</p>
+<pre><code class="language-typescript">import { SkillContext, SkillResult } from 'openclaw';
+import axios from 'axios';
+
+interface RagRetrievalParams {
+  query: string;
+  top_k?: number;
+}
+
+export default async function execute(
+  params: RagRetrievalParams,
+  context: SkillContext
+): Promise&lt;SkillResult&gt; {
+  const { query, top_k = 5 } = params;
+  
+  try {
+    context.logger.info(`开始检索知识库，查询: &quot;${query}&quot;, top_k: ${top_k}`);
+    
+    // 调用 FastAPI 检索接口
+    const response = await axios.post('http://localhost:8000/api/vector/search', {
+      query,
+      top_k
+    });
+    
+    const { results, count } = response.data;
+    
+    context.logger.info(`检索完成，找到 ${count} 个相关文档片段`);
+    
+    // 记录检索结果（用于调试）
+    results.forEach((result: any, index: number) =&gt; {
+      context.logger.debug(`结果 ${index+1}: 距离=${result.distance?.toFixed(4)}, 来源=${result.metadata?.fileName || '未知'}`);
+    });
+    
+    return {
+      success: true,
+      data: {
+        success: true,
+        results,
+        count
+      }
+    };
+    
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.detail || error.message;
+    context.logger.error(`知识库检索失败: ${errorMessage}`);
+    
+    return {
+      success: false,
+      error: `知识库检索失败: ${errorMessage}`
+    };
+  }
+}
+</code></pre>
+<h3 id="34-">3.4 安装依赖并注册技能</h3>
+<p>安装 axios 依赖：</p>
+<pre><code class="language-bash">pnpm add axios
+</code></pre>
+<p>编辑 <code>.claw/config.yaml</code>，添加 RAG 检索技能：</p>
+<pre><code class="language-yaml">skills:
+  - path: ../skills/hello-world
+    enabled: true
+  - path: ../skills/document-parser
+    enabled: true
+  - path: ../skills/rag-retrieval
+    enabled: true
+</code></pre>
+<h3 id="35--openclaw-">3.5 配置 OpenClaw 自动调用检索技能</h3>
+<p>为了让 OpenClaw 在回答用户问题时自动调用 RAG 检索技能，我们需要修改系统提示词。</p>
+<p>编辑 <code>.claw/config.yaml</code>，添加以下内容：</p>
+<pre><code class="language-yaml">system_prompt: |
+  你是一个专业的企业知识库助手。你的任务是基于企业内部知识库的内容，准确、清晰地回答用户的问题。
+  
+  重要规则：
+  1. 当用户询问任何与企业内部知识、产品信息、规章制度、流程规范相关的问题时，**必须先调用 rag-retrieval 技能**获取相关信息。
+  2. 你的回答必须严格基于检索到的文档内容，不得编造信息。
+  3. 如果检索结果中没有相关信息，请明确告诉用户&quot;知识库中没有找到相关信息&quot;，不要猜测。
+  4. 回答时要引用来源，格式为：[来源: 文件名]
+  5. 保持回答简洁明了，重点突出。
+</code></pre>
+<h3 id="36--rag-">3.6 测试完整 RAG 流程</h3>
+<p>现在我们来测试完整的&quot;文档添加→检索→问答&quot;流程：</p>
+<ol>
+<li>
+<p><strong>添加测试文档</strong>：<br />
+使用 Swagger UI 调用 <code>/api/vector/add-document</code> 接口，添加一个测试文档：</p>
+<pre><code class="language-json">{
+  &quot;document_id&quot;: &quot;test-doc-001&quot;,
+  &quot;content&quot;: &quot;公司员工请假制度：\n1. 员工享有每年 10 天的带薪年假，工作满 1 年以上可享受。\n2. 病假需要提供医院开具的病假证明，病假期间工资按 80% 发放。\n3. 事假需要提前 1 天申请，事假期间不发放工资。\n4. 加班可以调休，调休需要在加班后 3 个月内使用。&quot;,
+  &quot;metadata&quot;: {
+    &quot;fileName&quot;: &quot;员工请假制度.md&quot;,
+    &quot;department&quot;: &quot;人力资源部&quot;,
+    &quot;version&quot;: &quot;1.0&quot;
+  }
+}
+</code></pre>
+</li>
+<li>
+<p><strong>重启 OpenClaw 网关</strong>：</p>
+<pre><code class="language-bash">pnpm run start
+</code></pre>
+</li>
+<li>
+<p><strong>测试问答</strong>：<br />
+打开 OpenClaw Web 管理界面，输入问题：</p>
+<pre><code>员工每年有多少天带薪年假？
+</code></pre>
+<p>你应该会看到 OpenClaw 自动调用 <code>rag-retrieval</code> 技能，然后基于检索结果给出回答：</p>
+<pre><code>正在调用 rag-retrieval 技能...
+技能调用成功，找到 1 个相关文档片段。
+
+根据公司员工请假制度，员工享有每年 10 天的带薪年假，工作满 1 年以上可享受。
+[来源: 员工请假制度.md]
+</code></pre>
+</li>
+</ol>
+<p>恭喜！你已经成功实现了 RAG 系统的核心功能。</p>
+<hr />
+<h2 id="4-">4. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── .env
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── utils/
+│   │   └── text_splitter.py
+│   └── services/
+│       └── vector_service.py
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       ├── document-parser/
+│       └── rag-retrieval/
+│           ├── skill.yaml
+│           └── index.ts
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="5-">5. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>理解了向量数据库的工作原理和在 RAG 系统中的核心作用</li>
+<li>集成了 Chroma 向量数据库，实现了文档向量化、存储和检索功能</li>
+<li>设计并实现了合理的文本分块策略</li>
+<li>开发了 OpenClaw RAG 检索技能，实现了自动知识检索</li>
+<li>配置了系统提示词，让大模型基于检索结果回答问题</li>
+<li>测试了完整的&quot;文档添加→检索→问答&quot;基础 RAG 流程</li>
+</ul>
+]]></description>
+    </item>
+    <item>
+      <title>OpenClaw 核心概念与第一个 MCP 技能开发</title>
+      <link>https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/</guid>
+      <pubDate>Thu, 26 Mar 2026 22:03:44 +0800</pubDate>
+      <description><![CDATA[<p>在上一篇文章中，我们已经搭建好了完整的开发环境，成功启动了 FastAPI 后端、OpenClaw AI 网关和 React 前端服务。这篇文章，我们将深入学习 OpenClaw 的核心机制，特别是 MCP（Model Context Protocol）协议，并开发我们的第一个实用技能——文档解析技能。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解 OpenClaw 的三层架构与核心工作原理</li>
+<li>掌握 MCP（Model Context Protocol）协议的基本概念</li>
+<li>学会开发、注册和测试 OpenClaw 自定义技能</li>
+<li>完成第一个实用技能：多格式文档解析技能</li>
+<li>实现通过 API 调用 OpenClaw 技能，为后续 RAG 集成铺路</li>
+</ul>
+<hr />
+<h2 id="1-openclaw-">1. OpenClaw 核心机制深度解析</h2>
+<p>在开始开发之前，我们需要先理解 OpenClaw 是如何工作的，这将帮助我们更好地设计和实现我们的知识库系统。</p>
+<h3 id="11-openclaw-">1.1 OpenClaw 三层架构</h3>
+<p>OpenClaw 采用了清晰的分层设计，确保系统的可扩展性和可靠性：</p>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                      控制层（Gateway 网关）              │
+│  会话管理 │ 通道路由 │ 工具调度 │ 状态同步 │ 流式输出    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      执行层（Node/Agent 节点）           │
+│  技能执行 │ 系统访问 │ 代码运行 │ 沙箱隔离 │ 错误处理    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      生态层（Skills &amp; Workspace）        │
+│  官方技能市场 │ 社区技能 │ 自定义技能 │ 工作空间配置    │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<ul>
+<li><strong>控制层</strong>：系统的&quot;神经中枢&quot;，运行在 <code>127.0.0.1:18789</code> 端口，负责接收所有请求，管理会话生命周期，调度技能执行，并将结果返回给调用方</li>
+<li><strong>执行层</strong>：分布在终端的&quot;执行肢体&quot;，负责实际运行技能代码，可以安全地访问宿主系统的资源</li>
+<li><strong>生态层</strong>：基于 MCP 协议的模块化插件系统，所有功能都以技能的形式存在，可以自由安装、卸载和开发</li>
+</ul>
+<h3 id="12--mcp-">1.2 什么是 MCP 协议？</h3>
+<p>MCP（Model Context Protocol）是 OpenClaw 定义的一套标准化协议，用于大模型与外部工具之间的通信。它解决了传统工具调用中存在的以下问题：</p>
+<ul>
+<li>不同大模型的工具调用格式不统一</li>
+<li>工具描述不清晰，导致大模型不知道如何正确调用</li>
+<li>缺乏统一的错误处理和状态同步机制</li>
+<li>工具权限管理混乱</li>
+</ul>
+<p>一个标准的 MCP 技能包含三个部分：</p>
+<ol>
+<li><strong>元数据</strong>：技能的名称、描述、作者、版本等信息</li>
+<li><strong>参数 Schema</strong>：使用 JSON Schema 定义技能的输入参数</li>
+<li><strong>执行函数</strong>：实际处理请求的代码逻辑</li>
+</ol>
+<h3 id="13-openclaw-">1.3 OpenClaw 技能调用流程</h3>
+<p>当用户提出一个问题时，OpenClaw 会执行以下步骤：</p>
+<ol>
+<li>接收用户问题，分析意图</li>
+<li>根据技能描述，判断是否需要调用工具</li>
+<li>如果需要，生成符合参数 Schema 的工具调用请求</li>
+<li>将请求发送给对应的执行节点</li>
+<li>执行节点运行技能代码，返回结果</li>
+<li>将工具返回的结果与用户问题一起发送给大模型</li>
+<li>大模型生成最终回答，返回给用户</li>
+</ol>
+<hr />
+<h2 id="2--mcp-hello-world">2. 开发第一个 MCP 技能：Hello World</h2>
+<p>让我们从最简单的 Hello World 技能开始，熟悉 MCP 技能的开发流程。</p>
+<h3 id="21-">2.1 创建技能目录</h3>
+<p>在 <code>openclaw</code> 目录下创建一个 <code>skills</code> 文件夹，用于存放我们所有的自定义技能：</p>
+<pre><code class="language-bash">cd openclaw
+mkdir skills
+mkdir skills/hello-world
+</code></pre>
+<h3 id="22-">2.2 编写技能定义文件</h3>
+<p>每个技能都需要一个 <code>skill.yaml</code> 文件，用于定义技能的元数据和参数 Schema。</p>
+<p>创建 <code>skills/hello-world/skill.yaml</code>：</p>
+<pre><code class="language-yaml">name: hello-world
+description: 一个简单的 Hello World 技能，用于测试 OpenClaw 技能开发
+author: Your Name
+version: 0.1.0
+category: 测试
+
+parameters:
+  type: object
+  properties:
+    name:
+      type: string
+      description: 要问候的人的名字
+      default: World
+  required: []
+
+returns:
+  type: string
+  description: 问候语
+</code></pre>
+<h3 id="23-">2.3 编写技能执行代码</h3>
+<p>创建 <code>skills/hello-world/index.ts</code>：</p>
+<pre><code class="language-typescript">import { SkillContext, SkillResult } from 'openclaw';
+
+export default async function execute(
+  params: { name?: string },
+  context: SkillContext
+): Promise&lt;SkillResult&gt; {
+  const name = params.name || 'World';
+  const greeting = `Hello, ${name}! 这是来自 OpenClaw 技能的问候。`;
+  
+  context.logger.info(`成功生成问候语: ${greeting}`);
+  
+  return {
+    success: true,
+    data: greeting
+  };
+}
+</code></pre>
+<h3 id="24-">2.4 注册技能</h3>
+<p>现在我们需要告诉 OpenClaw 我们有一个新技能。编辑 OpenClaw 的配置文件 <code>.claw/config.yaml</code>，添加以下内容：</p>
+<pre><code class="language-yaml">skills:
+  - path: ../skills/hello-world
+    enabled: true
+</code></pre>
+<h3 id="25--openclaw-">2.5 重启 OpenClaw 并测试</h3>
+<p>重启 OpenClaw 网关以加载新技能：</p>
+<pre><code class="language-bash"># 按 Ctrl+C 停止之前的服务
+pnpm run start
+</code></pre>
+<p>现在打开 OpenClaw Web 管理界面（通常会自动打开，地址是 <code>http://localhost:18789</code>），在聊天框中输入：</p>
+<pre><code>调用 hello-world 技能，名字是 OpenClaw
+</code></pre>
+<p>你应该会看到类似这样的回复：</p>
+<pre><code>正在调用 hello-world 技能...
+技能调用成功：
+Hello, OpenClaw! 这是来自 OpenClaw 技能的问候。
+</code></pre>
+<p>恭喜！你已经成功开发并运行了你的第一个 OpenClaw 技能。</p>
+<hr />
+<h2 id="3-">3. 开发实用技能：文档解析技能</h2>
+<p>现在我们来开发一个对知识库系统至关重要的技能——文档解析技能。这个技能将能够读取本地文件系统中的文档，并将其内容提取为纯文本格式。</p>
+<h3 id="31-">3.1 创建文档解析技能目录</h3>
+<pre><code class="language-bash">mkdir skills/document-parser
+</code></pre>
+<h3 id="32-">3.2 编写技能定义文件</h3>
+<p>创建 <code>skills/document-parser/skill.yaml</code>：</p>
+<pre><code class="language-yaml">name: document-parser
+description: 解析本地文件系统中的文档，提取纯文本内容。支持 TXT、Markdown、PDF、Word 等格式。
+author: Your Name
+version: 0.1.0
+category: 文档处理
+
+parameters:
+  type: object
+  properties:
+    filePath:
+      type: string
+      description: 要解析的文档的绝对路径
+    format:
+      type: string
+      description: 文档格式，如果不指定则根据文件扩展名自动识别
+      enum: [txt, md, pdf, docx, auto]
+      default: auto
+  required:
+    - filePath
+
+returns:
+  type: object
+  properties:
+    success:
+      type: boolean
+      description: 是否解析成功
+    content:
+      type: string
+      description: 提取的纯文本内容
+    metadata:
+      type: object
+      description: 文档元数据
+      properties:
+        fileName:
+          type: string
+          description: 文件名
+        fileSize:
+          type: number
+          description: 文件大小（字节）
+        format:
+          type: string
+          description: 文档格式
+        pageCount:
+          type: number
+          description: 页数（仅适用于 PDF 和 Word）
+</code></pre>
+<h3 id="33-">3.3 安装依赖</h3>
+<p>我们需要一些库来解析不同格式的文档：</p>
+<pre><code class="language-bash">pnpm add fs-extra pdf-parse mammoth
+pnpm add -D @types/fs-extra @types/pdf-parse
+</code></pre>
+<h3 id="34-">3.4 编写技能执行代码</h3>
+<p>创建 <code>skills/document-parser/index.ts</code>：</p>
+<pre><code class="language-typescript">import { SkillContext, SkillResult } from 'openclaw';
+import fs from 'fs-extra';
+import path from 'path';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
+
+interface DocumentParserParams {
+  filePath: string;
+  format: 'txt' | 'md' | 'pdf' | 'docx' | 'auto';
+}
+
+interface DocumentMetadata {
+  fileName: string;
+  fileSize: number;
+  format: string;
+  pageCount?: number;
+}
+
+export default async function execute(
+  params: DocumentParserParams,
+  context: SkillContext
+): Promise&lt;SkillResult&gt; {
+  const { filePath, format } = params;
+  
+  try {
+    // 检查文件是否存在
+    if (!await fs.pathExists(filePath)) {
+      throw new Error(`文件不存在: ${filePath}`);
+    }
+    
+    // 获取文件信息
+    const stats = await fs.stat(filePath);
+    if (!stats.isFile()) {
+      throw new Error(`不是一个文件: ${filePath}`);
+    }
+    
+    const fileName = path.basename(filePath);
+    const fileSize = stats.size;
+    
+    // 自动识别文件格式
+    let actualFormat = format;
+    if (actualFormat === 'auto') {
+      const ext = path.extname(filePath).toLowerCase().slice(1);
+      if (['txt', 'md', 'pdf', 'docx'].includes(ext)) {
+        actualFormat = ext as any;
+      } else {
+        throw new Error(`不支持的文件格式: ${ext}`);
+      }
+    }
+    
+    context.logger.info(`开始解析文档: ${fileName}, 格式: ${actualFormat}`);
+    
+    let content: string;
+    let pageCount: number | undefined;
+    
+    // 根据不同格式解析文档
+    switch (actualFormat) {
+      case 'txt':
+      case 'md':
+        content = await fs.readFile(filePath, 'utf-8');
+        break;
+        
+      case 'pdf':
+        const pdfBuffer = await fs.readFile(filePath);
+        const pdfResult = await pdfParse(pdfBuffer);
+        content = pdfResult.text;
+        pageCount = pdfResult.numpages;
+        break;
+        
+      case 'docx':
+        const docxBuffer = await fs.readFile(filePath);
+        const docxResult = await mammoth.extractRawText({ buffer: docxBuffer });
+        content = docxResult.value;
+        break;
+        
+      default:
+        throw new Error(`不支持的文件格式: ${actualFormat}`);
+    }
+    
+    // 清理文本内容
+    content = content.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    
+    const metadata: DocumentMetadata = {
+      fileName,
+      fileSize,
+      format: actualFormat,
+      pageCount
+    };
+    
+    context.logger.info(`文档解析成功: ${fileName}, 大小: ${fileSize} 字节, 页数: ${pageCount || 'N/A'}`);
+    
+    return {
+      success: true,
+      data: {
+        success: true,
+        content,
+        metadata
+      }
+    };
+    
+  } catch (error: any) {
+    context.logger.error(`文档解析失败: ${error.message}`);
+    
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+</code></pre>
+<h3 id="35-">3.5 注册文档解析技能</h3>
+<p>编辑 <code>.claw/config.yaml</code>，添加文档解析技能：</p>
+<pre><code class="language-yaml">skills:
+  - path: ../skills/hello-world
+    enabled: true
+  - path: ../skills/document-parser
+    enabled: true
+</code></pre>
+<h3 id="36-">3.6 测试文档解析技能</h3>
+<p>重启 OpenClaw 网关，然后在 Web 界面中测试：</p>
+<pre><code>调用 document-parser 技能，filePath 是 &quot;/path/to/your/test.md&quot;
+</code></pre>
+<p>请将 <code>/path/to/your/test.md</code> 替换为你本地一个实际存在的 Markdown 文件的绝对路径。如果一切正常，你应该能看到文件的内容被成功提取出来。</p>
+<hr />
+<h2 id="4--api--openclaw-">4. 通过 API 调用 OpenClaw 技能</h2>
+<p>为了让 FastAPI 后端能够调用 OpenClaw 技能，我们需要了解 OpenClaw 的 REST API。</p>
+<h3 id="41-">4.1 创建会话</h3>
+<p>首先，我们需要创建一个会话：</p>
+<pre><code class="language-bash">curl -X POST http://localhost:18789/api/sessions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;title&quot;: &quot;文档解析测试会话&quot;
+  }'
+</code></pre>
+<p>你会得到一个包含会话 ID 的响应：</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;session-1234567890&quot;,
+    &quot;title&quot;: &quot;文档解析测试会话&quot;,
+    &quot;createdAt&quot;: &quot;2026-05-18T00:00:00.000Z&quot;
+  }
+}
+</code></pre>
+<h3 id="42-">4.2 调用技能</h3>
+<p>使用上一步得到的会话 ID，调用文档解析技能：</p>
+<pre><code class="language-bash">curl -X POST http://localhost:18789/api/sessions/{session-id}/messages \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;role&quot;: &quot;user&quot;,
+    &quot;content&quot;: &quot;调用 document-parser 技能，filePath 是 \&quot;/path/to/your/test.md\&quot;&quot;,
+    &quot;stream&quot;: false
+  }'
+</code></pre>
+<p>你会得到一个包含技能调用结果的响应。</p>
+<h3 id="43-">4.3 流式输出</h3>
+<p>如果需要流式输出，可以将 <code>stream</code> 参数设置为 <code>true</code>：</p>
+<pre><code class="language-bash">curl -X POST http://localhost:18789/api/sessions/{session-id}/messages \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;role&quot;: &quot;user&quot;,
+    &quot;content&quot;: &quot;总结一下这个文档的内容&quot;,
+    &quot;stream&quot;: true
+  }'
+</code></pre>
+<p>OpenClaw 会以 SSE（Server-Sent Events）的方式返回结果，这对于实现前端的打字机效果非常有用。</p>
+<hr />
+<h2 id="5-">5. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── main.py
+│   └── requirements.txt
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       │   ├── skill.yaml
+│       │   └── index.ts
+│       └── document-parser/
+│           ├── skill.yaml
+│           └── index.ts
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="6-">6. 接下来要做什么</h2>
+<p>在下一篇文章中，我们将：</p>
+<ol>
+<li>集成向量数据库 Chroma</li>
+<li>开发文档向量化技能，将解析后的文本转换为向量</li>
+<li>实现向量存储和检索功能</li>
+<li>完成 RAG 系统的核心检索模块</li>
+</ol>
+<p>如果你迫不及待想提前准备，可以先了解一下 Chroma 向量数据库的基本概念和使用方法。</p>
+<hr />
+<h2 id="7-">7. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>深入理解了 OpenClaw 的三层架构和核心工作原理</li>
+<li>掌握了 MCP 协议的基本概念和技能开发流程</li>
+<li>开发并测试了第一个 Hello World 技能</li>
+<li>完成了实用的多格式文档解析技能，支持 TXT、Markdown、PDF 和 Word</li>
+<li>学会了如何通过 REST API 调用 OpenClaw 技能</li>
+<li>为后续的 RAG 检索模块开发打下了坚实的基础</li>
+</ul>
+<!-- more -->]]></description>
+    </item>
+    <item>
+      <title>从零构建智能知识库：项目概览与环境搭建</title>
+      <link>https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/</link>
+      <guid isPermaLink="true">https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/</guid>
+      <pubDate>Tue, 24 Mar 2026 18:52:11 +0800</pubDate>
+      <description><![CDATA[<p>在接下来的几篇文章中，我们将从零开始，手把手构建一个<strong>基于 OpenClaw + RAG的企业级智能知识库系统</strong>。它能够支持多格式文档上传，将内容存入向量数据库，并通过大语言模型提供精准、无幻觉的问答服务。</p>
+<p>这篇文章，我会先帮你理清整体架构、技术选型，并搭建好完整的开发环境。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解企业级智能知识库的核心痛点与 RAG 技术的解决方案</li>
+<li>知道为什么选择 OpenClaw + FastAPI + Node.js 这套组合，而不是纯 LangChain 方案</li>
+<li>掌握 OpenClaw AI 网关的基本概念与核心优势</li>
+<li>在本地创建好 Python 和 Node.js 的开发环境</li>
+<li>成功启动 FastAPI 服务、OpenClaw 网关和 Node.js 前端服务，为后续开发铺路</li>
+</ul>
+<hr />
+<h2 id="1-">1. 什么是企业级智能知识库？为什么我们需要它？</h2>
+<h3 id="11-">1.1 传统知识库的痛点</h3>
+<p>在数字化转型的今天，几乎每个企业都积累了海量的文档资料：产品手册、技术文档、培训材料、客户案例、规章制度……但这些宝贵的知识资产往往处于&quot;沉睡&quot;状态：</p>
+<ul>
+<li><strong>查找困难</strong>：员工需要在多个系统、数百个文件夹中翻找信息，平均每天浪费1-2小时</li>
+<li><strong>知识断层</strong>：老员工离职带走核心知识，新员工上手慢</li>
+<li><strong>信息不一致</strong>：不同版本的文档同时存在，导致错误决策</li>
+<li><strong>大模型幻觉</strong>：直接使用通用大模型回答企业内部问题，经常出现&quot;一本正经地胡说八道&quot;</li>
+</ul>
+<h3 id="12-rag-">1.2 RAG 技术如何解决这些问题</h3>
+<p>RAG（Retrieval-Augmented Generation，检索增强生成）是让大语言模型&quot;按需翻阅参考资料&quot;的技术。它的核心流程是：</p>
+<ol>
+<li><strong>文档加载与切块</strong>：将原始文档（PDF、Word、Markdown 等）拆成适合模型处理的小段</li>
+<li><strong>向量化</strong>：用 Embedding 模型把每段文本转成向量，存入向量数据库</li>
+<li><strong>检索</strong>：用户提问时，把问题也转成向量，从数据库中找出语义最相关的若干段落</li>
+<li><strong>生成</strong>：把检索到的内容作为上下文，连同问题一起发给大模型，生成基于事实的答案</li>
+</ol>
+<p>这样，大模型就不必&quot;死记硬背&quot;所有知识，而是可以引用最新、最准确的企业内部资料，从根本上解决幻觉问题。</p>
+<hr />
+<h2 id="2-">2. 技术选型深度对比：为什么选择这套组合？</h2>
+<p>在项目开始前，我们调研了市场上几乎所有主流的 AI 应用开发技术栈，并进行了全面的对比分析。</p>
+<h3 id="21-">2.1 传统方案的局限性</h3>
+<p><strong>方案一：纯 LangChain/LlamaIndex 原生开发</strong></p>
+<ul>
+<li>优点：灵活性高，社区生态丰富</li>
+<li>缺点：代码量巨大，重复造轮子；缺乏统一的会话管理；生产级特性需要自己实现；模型切换成本高</li>
+</ul>
+<p><strong>方案二：使用现成的知识库 SaaS 服务</strong></p>
+<ul>
+<li>优点：开箱即用，无需开发</li>
+<li>缺点：数据安全风险；定制化能力差；成本高昂；无法与企业现有系统深度集成</li>
+</ul>
+<p><strong>方案三：基于 ChatGPT 插件或 Claude Artifacts 开发</strong></p>
+<ul>
+<li>优点：开发简单，利用大模型原生能力</li>
+<li>缺点：完全依赖第三方平台；数据必须经过大模型服务商；功能受限；无法私有化部署</li>
+</ul>
+<h3 id="22-openclaw--rag--fastapi--nodejs">2.2 我们的技术栈：OpenClaw + RAG + FastAPI + Node.js</h3>
+<p>经过反复权衡，我们最终选择了这个技术组合，它完美平衡了开发效率、功能强大性、生产可靠性和数据安全性。</p>
+<p>我们整体的技术栈可以用一张图概括：</p>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                      前端层 (Node.js + React)            │
+│  登录注册 │ 文档管理 │ 智能问答 │ 系统设置 │ 统计分析    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      业务层 (FastAPI)                    │
+│  用户认证 │ 文档处理 │ 向量存储 │ 权限控制 │ 日志管理    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      AI网关层 (OpenClaw)                 │
+│  模型管理 │ 会话管理 │ 技能调度 │ 流式输出 │ 错误处理    │
+│                           │                             │
+│  ┌─────────────────────┐  │  ┌─────────────────────┐    │
+│  │   Claude 3 Opus     │  │  │   RAG检索技能       │    │
+│  │   GPT-4o            │&lt;─┼─&gt;│   重排序技能        │    │
+│  │   本地Ollama模型    │  │  │   多模态技能        │    │
+│  └─────────────────────┘  │  └─────────────────────┘    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      数据层                              │
+│  PostgreSQL │ Chroma/Pinecone │ 文件存储 │ 缓存系统     │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<p>各组件具体分工如下：</p>
+<h3 id="221-fastapi--">2.2.1 FastAPI —— 业务逻辑后端</h3>
+<ul>
+<li>负责所有非 AI 相关的业务任务：用户认证、文档上传与解析、向量存储、权限控制</li>
+<li>提供 RESTful API，例如 <code>POST /api/documents/upload</code>、<code>GET /api/documents</code></li>
+<li>使用 FastAPI 是因为它异步性能出色、自动生成文档，且与 Python AI 生态无缝衔接</li>
+</ul>
+<h3 id="222-nodejs--react--">2.2.2 Node.js + React —— 前端用户界面</h3>
+<ul>
+<li>提供一个现代化的 Web 界面，让用户上传文档、提问和查看结果</li>
+<li>处理流式输出，实现流畅的打字机效果</li>
+<li>我们选用 Vite + React + TypeScript + Ant Design，这是目前最成熟的前端技术栈之一</li>
+</ul>
+<h3 id="223-openclaw--ai-">2.2.3 OpenClaw —— AI 智能体网关（核心）</h3>
+<ul>
+<li>统一管理所有大模型调用，一行配置切换 Claude/GPT/Gemini/本地模型</li>
+<li>基于 MCP（Model Context Protocol）协议的模块化技能系统，集成 RAG 只需几十行代码</li>
+<li>内置生产级会话管理、状态同步、历史消息管理</li>
+<li>原生支持 SSE 和 WebSocket 流式输出，打字机效果一行代码实现</li>
+</ul>
+<h3 id="23-openclaw-">2.3 OpenClaw 的独特优势</h3>
+<p>OpenClaw 是整个架构中最关键的组件，也是我们选择这个技术栈的核心理由。它不是另一个 LangChain，而是一个更高层次的<strong>AI 智能体运行时与网关平台</strong>。</p>
+<p><strong>一句话总结</strong>：LangChain 让你能构建 AI 应用，OpenClaw 让你能<strong>快速构建并在生产环境运行</strong>AI 应用。</p>
+<hr />
+<h2 id="3-">3. 本地开发环境准备</h2>
+<p>开始之前，请确保你的机器上已经安装：</p>
+<ul>
+<li><strong>Python 3.11+</strong>（推荐 3.11 或 3.12，3.13 部分依赖可能有兼容性问题）</li>
+<li><strong>Node.js 20+</strong>（LTS 版本，推荐 20.12+）</li>
+<li><strong>pnpm</strong>（比 npm/yarn 更快更高效）</li>
+<li><strong>Git</strong>（版本控制）</li>
+<li>（可选）<strong>Docker Desktop</strong>，用于后续部署和向量数据库容器</li>
+</ul>
+<p>你可以用以下命令检查：</p>
+<pre><code class="language-bash">python --version
+node --version
+pnpm --version
+git --version
+</code></pre>
+<p>如果 pnpm 未安装，可以使用以下命令安装：</p>
+<pre><code class="language-bash">npm install -g pnpm
+</code></pre>
+<hr />
+<h2 id="4-">4. 项目初始化</h2>
+<p>我们将在一个大的仓库下包含三个子目录：<code>backend/</code>（FastAPI）、<code>openclaw/</code>（OpenClaw 配置与技能）和 <code>frontend/</code>（Node.js + React）。</p>
+<h3 id="41-">4.1 创建项目目录</h3>
+<pre><code class="language-bash">mkdir enterprise-knowledge-base &amp;&amp; cd enterprise-knowledge-base
+mkdir backend openclaw frontend
+git init
+</code></pre>
+<p>创建 <code>.gitignore</code> 文件：</p>
+<pre><code class="language-bash"># Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Node.js
+node_modules/
+dist/
+.DS_Store
+</code></pre>
+<h3 id="42--fastapi-">4.2 搭建 FastAPI 后端</h3>
+<p>进入 <code>backend</code> 目录，创建虚拟环境并安装基本依赖：</p>
+<pre><code class="language-bash">cd backend
+python -m venv venv
+source venv/bin/activate   # Windows 使用 venv\Scripts\activate
+
+pip install fastapi uvicorn[standard] python-dotenv python-multipart
+</code></pre>
+<p>新建 <code>main.py</code>：</p>
+<pre><code class="language-python">from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(title=&quot;企业级智能知识库 API&quot;, version=&quot;0.1.0&quot;)
+
+# 配置 CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[&quot;*&quot;],  # 开发环境允许所有来源，生产环境请限制为具体域名
+    allow_credentials=True,
+    allow_methods=[&quot;*&quot;],
+    allow_headers=[&quot;*&quot;],
+)
+
+@app.get(&quot;/&quot;)
+async def root():
+    return {&quot;message&quot;: &quot;企业级智能知识库后端已启动&quot;, &quot;version&quot;: &quot;0.1.0&quot;}
+
+@app.get(&quot;/api/health&quot;)
+async def health_check():
+    return {&quot;status&quot;: &quot;healthy&quot;}
+</code></pre>
+<p>现在可以启动服务测试：</p>
+<pre><code class="language-bash">uvicorn main:app --reload --port 8000
+</code></pre>
+<p>打开浏览器访问 <code>http://localhost:8000</code>，你应该能看到返回的 JSON 消息。<br />
+FastAPI 还自带交互式文档，访问 <code>http://localhost:8000/docs</code> 查看。</p>
+<h3 id="43--openclaw-ai-">4.3 搭建 OpenClaw AI 网关</h3>
+<p>另开一个终端，进入 <code>openclaw</code> 目录：</p>
+<pre><code class="language-bash">cd ../openclaw
+pnpm init -y
+pnpm add openclaw
+</code></pre>
+<p>在 <code>package.json</code> 中添加脚本：</p>
+<pre><code class="language-json">&quot;scripts&quot;: {
+  &quot;start&quot;: &quot;openclaw start&quot;,
+  &quot;init&quot;: &quot;openclaw init&quot;
+}
+</code></pre>
+<p>初始化 OpenClaw 配置：</p>
+<pre><code class="language-bash">pnpm run init
+</code></pre>
+<p>按照提示输入你的 Claude API Key（也可以稍后在配置文件中修改），选择默认模型为 <code>claude-3-sonnet-20240229</code>。</p>
+<p>启动 OpenClaw 网关：</p>
+<pre><code class="language-bash">pnpm run start
+</code></pre>
+<p>OpenClaw 会在本地 <code>127.0.0.1:18789</code> 端口启动，同时会自动打开 Web 管理界面。你可以在界面中进行简单的对话测试，确认 API Key 配置正确。</p>
+<h3 id="44--nodejs-">4.4 搭建 Node.js 前端</h3>
+<p>再开一个终端，进入 <code>frontend</code> 目录：</p>
+<pre><code class="language-bash">cd ../frontend
+pnpm create vite@latest . -- --template react-ts
+pnpm install
+pnpm add axios antd @ant-design/icons zustand react-router-dom
+</code></pre>
+<p>修改 <code>src/App.tsx</code>：</p>
+<pre><code class="language-tsx">import { Button, Space, Typography } from 'antd';
+import { useState } from 'react';
+import axios from 'axios';
+
+const { Title, Text } = Typography;
+
+function App() {
+  const [backendStatus, setBackendStatus] = useState&lt;string&gt;('检查中...');
+  const [openclawStatus, setOpenclawStatus] = useState&lt;string&gt;('检查中...');
+
+  const checkBackend = async () =&gt; {
+    try {
+      const response = await axios.get('http://localhost:8000/api/health');
+      setBackendStatus(`正常 (${response.data.status})`);
+    } catch (error) {
+      setBackendStatus('连接失败');
+    }
+  };
+
+  const checkOpenClaw = async () =&gt; {
+    try {
+      const response = await axios.get('http://localhost:127.0.0.1:18789/api/health');
+      setOpenclawStatus('正常');
+    } catch (error) {
+      setOpenclawStatus('连接失败');
+    }
+  };
+
+  return (
+    &lt;div style={{ padding: '50px' }}&gt;
+      &lt;Title level={2}&gt;企业级智能知识库&lt;/Title&gt;
+      &lt;Space direction=&quot;vertical&quot; size=&quot;large&quot; style={{ marginTop: '30px' }}&gt;
+        &lt;div&gt;
+          &lt;Text strong&gt;后端服务状态：&lt;/Text&gt;
+          &lt;Text&gt;{backendStatus}&lt;/Text&gt;
+          &lt;Button onClick={checkBackend} style={{ marginLeft: '10px' }}&gt;刷新&lt;/Button&gt;
+        &lt;/div&gt;
+        &lt;div&gt;
+          &lt;Text strong&gt;OpenClaw 网关状态：&lt;/Text&gt;
+          &lt;Text&gt;{openclawStatus}&lt;/Text&gt;
+          &lt;Button onClick={checkOpenClaw} style={{ marginLeft: '10px' }}&gt;刷新&lt;/Button&gt;
+        &lt;/div&gt;
+      &lt;/Space&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default App;
+</code></pre>
+<p>启动前端开发服务器：</p>
+<pre><code class="language-bash">pnpm run dev
+</code></pre>
+<p>访问 <code>http://localhost:5173</code>，你应该能看到前端页面，并且可以检查后端和 OpenClaw 网关的连接状态。</p>
+<hr />
+<h2 id="5-">5. 项目结构总览</h2>
+<p>至此，你的项目目录应该像这样：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── main.py
+│   └── requirements.txt   (后续生成)
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   └── .claw/             (OpenClaw 自动生成的配置目录)
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    │   ├── App.tsx
+    │   └── main.tsx
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<p>三个服务都成功跑起来了，意味着我们的开发环境已经完全就绪。</p>
+<hr />
+<h2 id="6-">6. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>分析了企业级智能知识库的核心痛点与 RAG 技术的解决方案</li>
+<li>对比了不同技术栈的优缺点，明确了 OpenClaw + FastAPI + Node.js 的技术方案</li>
+<li>理解了 OpenClaw 作为 AI 网关的核心定位与独特优势</li>
+<li>搭建了完整的本地开发环境，包括 Python 虚拟环境和 Node.js 环境</li>
+<li>成功启动了 FastAPI 后端服务、OpenClaw AI 网关和 React 前端服务</li>
+<li>为后续的开发打下了坚实的基础</li>
+</ul>
+<p>需要我帮你生成<strong>完整的 requirements.txt 文件</strong>和<strong>优化后的项目结构模板</strong>吗？</p>
 ]]></description>
     </item>
     <item>
@@ -1665,392 +4962,6 @@ export default EventHistory
 <li><strong>后端</strong>：用 <code>viem</code> 建立独立的事件监听进程，将数据持久化到 SQLite，并提供查询接口。</li>
 <li><strong>数据流</strong>：实现了“链上事件 → 后端数据库 → 前端展示”的完整闭环。</li>
 </ul>
-]]></description>
-    </item>
-    <item>
-      <title>Web3 全栈开发实战：从钱包集成到签名验证</title>
-      <link>https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhancong-qian-bao-ji-cheng-dao-qian-ming-yan-zheng/</link>
-      <guid isPermaLink="true">https://www.xx0-0xx.space/post/web3-quan-zhan-kai-fa-shi-zhancong-qian-bao-ji-cheng-dao-qian-ming-yan-zheng/</guid>
-      <pubDate>Fri, 28 Nov 2025 11:23:05 +0800</pubDate>
-      <description><![CDATA[<p>如今，Web3 应用早已不只是“连接个钱包”那么简单。一个真正可用的 DApp，至少需要做到三件事：前端流畅地连接钱包、与智能合约安全交互、后端可靠地验证用户身份。本文将以 <strong>React + wagmi + viem</strong> 为前端核心，<strong>Node.js</strong> 为后端，带你一步步搭建一个包含完整钱包集成流程的全栈 DApp。</p>
-<p>读完这篇文章，你将能够：</p>
-<ul>
-<li>在 React 应用中集成多钱包支持</li>
-<li>读取链上数据并发送交易</li>
-<li>实现“连接钱包即登录”</li>
-<li>在后端验证钱包签名以确保用户身份</li>
-</ul>
-<p>全文代码均可直接运行，你也可以在这个基础上自由扩展。</p>
-<hr />
-<h2 id="1-">1. 环境准备</h2>
-<p>开始之前，请确保本机已安装：</p>
-<ul>
-<li><strong>Node.js</strong> ≥ 18</li>
-<li><strong>pnpm</strong>（或 npm / yarn）</li>
-<li><strong>MetaMask</strong> 或其他钱包浏览器插件</li>
-</ul>
-<p>我们将在同一个仓库中维护前端和后端代码，最终目录结构如下：</p>
-<pre><code>web3-fullstack-demo/
-├── frontend/   # React + Vite
-└── backend/    # Express
-</code></pre>
-<hr />
-<h2 id="2---">2. 前端：项目初始化 &amp; 钱包连接</h2>
-<h3 id="21-">2.1 创建项目</h3>
-<p>使用 Vite 快速搭建 React + TypeScript 工程：</p>
-<pre><code class="language-bash">pnpm create vite frontend --template react-ts
-cd frontend
-pnpm install
-</code></pre>
-<h3 id="22--web3-">2.2 安装 Web3 依赖</h3>
-<p>我们使用 <strong>wagmi</strong> 管理钱包连接，<strong>viem</strong> 负责底层 RPC 调用与合约交互：</p>
-<pre><code class="language-bash">pnpm add wagmi viem @tanstack/react-query
-</code></pre>
-<blockquote>
-<p>wagmi v2 基于 vanilla 设计，与 viem 深度集成，是目前 React 生态中最主流的钱包连接方案。</p>
-</blockquote>
-<h3 id="23--wagmi-">2.3 配置 wagmi 与链</h3>
-<p>创建 <code>frontend/src/config/web3.ts</code>：</p>
-<pre><code class="language-ts">import { http, createConfig } from 'wagmi'
-import { mainnet, sepolia } from 'wagmi/chains'
-import { injected, metaMask, walletConnect } from 'wagmi/connectors'
-
-export const config = createConfig({
-  chains: [mainnet, sepolia],
-  connectors: [
-    injected(),           // 浏览器注入钱包（如 MetaMask）
-    metaMask(),           // 显式指定 MetaMask
-    walletConnect({       // WalletConnect 扫码连接
-      projectId: '你的_WalletConnect_Project_ID', // 从 cloud.walletconnect.com 获取
-    }),
-  ],
-  transports: {
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
-  },
-})
-</code></pre>
-<h3 id="24--context">2.4 提供全局 Context</h3>
-<p>修改 <code>frontend/src/main.tsx</code>，包裹 WagmiProvider：</p>
-<pre><code class="language-tsx">import React from 'react'
-import ReactDOM from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { WagmiProvider } from 'wagmi'
-import { config } from './config/web3'
-import App from './App'
-
-const queryClient = new QueryClient()
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  &lt;React.StrictMode&gt;
-    &lt;WagmiProvider config={config}&gt;
-      &lt;QueryClientProvider client={queryClient}&gt;
-        &lt;App /&gt;
-      &lt;/QueryClientProvider&gt;
-    &lt;/WagmiProvider&gt;
-  &lt;/React.StrictMode&gt;
-)
-</code></pre>
-<h3 id="25-">2.5 实现“连接钱包”按钮</h3>
-<p>在 <code>App.tsx</code> 中，我们用 wagmi 的 Hook 快速实现连接与账户信息展示：</p>
-<pre><code class="language-tsx">import { useAccount, useConnect, useDisconnect, useBalance } from 'wagmi'
-
-function App() {
-  const { address, isConnected } = useAccount()
-  const { connect, connectors, error, status } = useConnect()
-  const { disconnect } = useDisconnect()
-  const { data: balance } = useBalance({ address })
-
-  return (
-    &lt;div style={{ padding: 32 }}&gt;
-      &lt;h1&gt; Web3 钱包集成 Demo&lt;/h1&gt;
-
-      {isConnected ? (
-        &lt;div&gt;
-          &lt;p&gt; 已连接：{address}&lt;/p&gt;
-          &lt;p&gt; 余额：{balance?.formatted} {balance?.symbol}&lt;/p&gt;
-          &lt;button onClick={() =&gt; disconnect()}&gt;断开连接&lt;/button&gt;
-        &lt;/div&gt;
-      ) : (
-        &lt;div&gt;
-          &lt;p&gt;请先连接钱包&lt;/p&gt;
-          {connectors.map((connector) =&gt; (
-            &lt;button
-              key={connector.id}
-              onClick={() =&gt; connect({ connector })}
-              disabled={status === 'pending'}
-            &gt;
-              {connector.name}
-              {!connector.ready &amp;&amp; ' (未安装)'}
-            &lt;/button&gt;
-          ))}
-          {error &amp;&amp; &lt;p style={{ color: 'red' }}&gt;{error.message}&lt;/p&gt;}
-        &lt;/div&gt;
-      )}
-    &lt;/div&gt;
-  )
-}
-
-export default App
-</code></pre>
-<p>运行 <code>pnpm dev</code>，你应该能看到连接按钮，并能成功连接 MetaMask 或 WalletConnect。</p>
-<blockquote>
-<p>到此，钱包连接的基础设施就搭建完成了。</p>
-</blockquote>
-<hr />
-<h2 id="3-">3. 前端：与合约交互</h2>
-<h3 id="31--abi-">3.1 准备合约 ABI 与地址</h3>
-<p>假设我们已部署一个简单的“存取值”合约在 Sepolia 测试网：</p>
-<pre><code class="language-solidity">// ValueStore.sol
-contract ValueStore {
-    uint256 public value;
-
-    event ValueChanged(uint256 newValue);
-
-    function setValue(uint256 _value) external {
-        value = _value;
-        emit ValueChanged(_value);
-    }
-}
-</code></pre>
-<p>合约地址：<code>0xYourContractAddress</code><br />
-ABI 只需保留会用到的片段（也可以直接导入完整 JSON）。</p>
-<p>创建 <code>frontend/src/contracts/valueStore.ts</code>：</p>
-<pre><code class="language-ts">export const VALUE_STORE_ADDRESS = '0xYourContractAddress'
-
-export const VALUE_STORE_ABI = [
-  {
-    inputs: [],
-    name: 'value',
-    outputs: [{ type: 'uint256' }],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [{ name: '_value', type: 'uint256' }],
-    name: 'setValue',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    anonymous: false,
-    inputs: [{ indexed: false, name: 'newValue', type: 'uint256' }],
-    name: 'ValueChanged',
-    type: 'event',
-  },
-] as const
-</code></pre>
-<h3 id="32-">3.2 读取合约数据</h3>
-<p>使用 <code>useReadContract</code> 读取链上状态：</p>
-<pre><code class="language-tsx">import { useReadContract } from 'wagmi'
-import { VALUE_STORE_ADDRESS, VALUE_STORE_ABI } from './contracts/valueStore'
-
-function ContractData() {
-  const { data: value, isError, isLoading } = useReadContract({
-    address: VALUE_STORE_ADDRESS,
-    abi: VALUE_STORE_ABI,
-    functionName: 'value',
-  })
-
-  if (isLoading) return &lt;p&gt;加载中…&lt;/p&gt;
-  if (isError) return &lt;p&gt;读取失败&lt;/p&gt;
-  return &lt;p&gt; 合约当前值：{value?.toString()}&lt;/p&gt;
-}
-</code></pre>
-<h3 id="33-">3.3 写入合约（发送交易）</h3>
-<p>用 <code>useWriteContract</code> + <code>useWaitForTransactionReceipt</code> 实现写操作并等待上链：</p>
-<pre><code class="language-tsx">import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { VALUE_STORE_ADDRESS, VALUE_STORE_ABI } from './contracts/valueStore'
-import { parseEther } from 'viem'
-import { useState } from 'react'
-
-function SetValue() {
-  const [inputValue, setInputValue] = useState('')
-  const { data: hash, writeContract } = useWriteContract()
-
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({ hash })
-
-  const handleSet = () =&gt; {
-    if (!inputValue) return
-    writeContract({
-      address: VALUE_STORE_ADDRESS,
-      abi: VALUE_STORE_ABI,
-      functionName: 'setValue',
-      args: [BigInt(inputValue)],
-    })
-  }
-
-  return (
-    &lt;div&gt;
-      &lt;input
-        type=&quot;number&quot;
-        value={inputValue}
-        onChange={(e) =&gt; setInputValue(e.target.value)}
-        placeholder=&quot;新值&quot;
-      /&gt;
-      &lt;button onClick={handleSet} disabled={isConfirming}&gt;
-        {isConfirming ? '确认中…' : '设置'}
-      &lt;/button&gt;
-      {hash &amp;&amp; &lt;p&gt;交易哈希：{hash}&lt;/p&gt;}
-      {isConfirmed &amp;&amp; &lt;p style={{ color: 'green' }}&gt; 上链成功！&lt;/p&gt;}
-    &lt;/div&gt;
-  )
-}
-</code></pre>
-<blockquote>
-<p>这样我们就完成了钱包连接、余额查询、合约读写等前端核心功能。</p>
-</blockquote>
-<hr />
-<h2 id="4-">4. 连接钱包即登录：签名验证流程</h2>
-<p>很多 DApp 需要后端确认“某个操作确实来自该钱包地址”。标准做法是：</p>
-<ol>
-<li>后端生成一条随机消息（nonce）</li>
-<li>前端用钱包对该消息签名</li>
-<li>后端验证签名，返回 JWT 或 session</li>
-</ol>
-<p>这比传统的密码登录更安全、更去中心化。</p>
-<h3 id="41--nonce-">4.1 后端：生成 Nonce 接口</h3>
-<p>创建 <code>backend/</code> 目录并初始化：</p>
-<pre><code class="language-bash">mkdir backend &amp;&amp; cd backend
-pnpm init
-pnpm add express cors viem
-pnpm add -D typescript @types/express @types/cors tsx
-</code></pre>
-<p>配置 <code>tsconfig.json</code>，然后编写 <code>backend/src/index.ts</code>：</p>
-<pre><code class="language-ts">import express from 'express'
-import cors from 'cors'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { createPublicClient, http } from 'viem'
-import { mainnet } from 'viem/chains'
-
-const app = express()
-app.use(cors())
-app.use(express.json())
-
-// 用于签名验证的客户端（也可以不连链，直接用 viem 的 verifyMessage）
-// 这里使用 viem 原生方法，不需要 provider
-
-// 存储 nonce（实际项目应存数据库，并绑定 session）
-const nonces = new Map&lt;string, string&gt;()
-
-// 1. 请求 nonce
-app.post('/auth/nonce', (req, res) =&gt; {
-  const { address } = req.body
-  if (!address) return res.status(400).json({ error: '缺少地址' })
-
-  const nonce = `登录验证：${Math.floor(Math.random() * 1e9)}`
-  nonces.set(address, nonce)
-
-  // 设置过期时间（示例 5 分钟）
-  setTimeout(() =&gt; nonces.delete(address), 5 * 60 * 1000)
-
-  res.json({ nonce })
-})
-
-// 2. 验证签名
-app.post('/auth/verify', (req, res) =&gt; {
-  const { address, signature } = req.body
-  const nonce = nonces.get(address)
-
-  if (!nonce) return res.status(400).json({ error: 'nonce 无效或已过期' })
-
-  try {
-    // viem 的 verifyMessage 可以直接验证以太坊个人签名
-    const isValid = verifyMessage({
-      address: address as `0x${string}`,
-      message: nonce,
-      signature: signature as `0x${string}`,
-    })
-
-    if (isValid) {
-      nonces.delete(address)
-      // 这里可以签发 JWT，示例中直接返回成功
-      res.json({ success: true, token: 'your-jwt-token' })
-    } else {
-      res.status(401).json({ error: '签名验证失败' })
-    }
-  } catch (e) {
-    res.status(401).json({ error: '签名验证异常' })
-  }
-})
-
-app.listen(3001, () =&gt; {
-  console.log('后端运行在 http://localhost:3001')
-})
-</code></pre>
-<blockquote>
-<p>注意：上面的 <code>verifyMessage</code> 需要从 <code>viem</code> 导入，实际代码顶部加上：<br />
-<code>import { verifyMessage } from 'viem'</code></p>
-</blockquote>
-<h3 id="42-">4.2 前端：发起登录流程</h3>
-<p>在前端封装登录逻辑，点击“使用钱包登录”时调用：</p>
-<pre><code class="language-tsx">import { useSignMessage } from 'wagmi'
-
-function LoginWithWallet() {
-  const { address } = useAccount()
-  const { signMessageAsync } = useSignMessage()
-
-  const login = async () =&gt; {
-    if (!address) return
-
-    // 1. 获取 nonce
-    const nonceRes = await fetch('http://localhost:3001/auth/nonce', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address }),
-    })
-    const { nonce } = await nonceRes.json()
-
-    // 2. 钱包签名
-    const signature = await signMessageAsync({ message: nonce })
-
-    // 3. 发送签名到后端验证
-    const verifyRes = await fetch('http://localhost:3001/auth/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, signature }),
-    })
-    const result = await verifyRes.json()
-
-    if (result.success) {
-      alert('登录成功！')
-      // 保存 token，后续请求携带
-    } else {
-      alert('登录失败')
-    }
-  }
-
-  return &lt;button onClick={login}&gt; 钱包登录&lt;/button&gt;
-}
-</code></pre>
-<p>至此，“连接钱包即登录”的完整流程就跑通了。</p>
-<hr />
-<h2 id="5-">5. 常见问题与优化建议</h2>
-<h3 id="51-">5.1 切换网络</h3>
-<p>wagmi 提供了 <code>useSwitchChain</code> Hook，可以引导用户切换到指定链，或者使用 <code>switchChain</code> 直接调用。</p>
-<h3 id="52-">5.2 多钱包冲突</h3>
-<p>当用户同时安装 MetaMask 和 Coinbase Wallet 时，<code>injected</code> 连接器会出现多个选项。使用 <code>metaMask()</code> 或 <code>coinbaseWallet()</code> 显式指定可以避免混淆。</p>
-<h3 id="53-">5.3 生产环境安全</h3>
-<ul>
-<li>Nonce 应存储在 Redis/数据库中，并设置合理过期时间。</li>
-<li>避免在 Nonce 中泄露敏感信息。</li>
-<li>签名验证通过后务必签发具备时效性的 JWT，后续接口验证 JWT 而非重复签名。</li>
-<li>前端请求后端时，使用 HTTPS 防止中间人攻击。</li>
-</ul>
-<hr />
-<h2 id="6-">6. 总结</h2>
-<p>这篇文章我们从零搭建了一个 <strong>Web3 全栈应用的钱包集成方案</strong>，覆盖了：</p>
-<ul>
-<li>React 中使用 wagmi + viem 连接多种钱包</li>
-<li>读取链上余额与合约状态</li>
-<li>发送交易并等待上链确认</li>
-<li>实现“签名即登录”的用户认证流程</li>
-</ul>
-<p>完整代码已经具备了可扩展性：你可以在前端接入更多的合约方法，在后端加入数据库持久化用户数据，或者用 JWT 保护 API 接口。希望这篇教程能帮你迈出 Web3 全栈开发坚实的一步。</p>
-<hr />
-<p><strong>如果这篇教程对你有帮助，欢迎分享或留言交流。我们下一篇文章再见！</strong></p>
 ]]></description>
     </item>
   </channel>

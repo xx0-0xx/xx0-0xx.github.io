@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<link rel="stylesheet" href="/styles/main.min.css">
+
+
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+
+
+<style>:root { --heatmap-color: #39d353; }</style>
+
+
+
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('flavor-theme');
+      var theme = saved || 'dark';
+      if (theme === 'light') {
+        document.documentElement.classList.add('theme-light');
+      }
+    } catch (e) { }
+  })();
+</script>
+  <meta name="generator" content="Gridea Pro 1.1.1">
+  <title>从零构建智能知识库：项目概览与环境搭建 | Stariverse</title>
+  
+<meta property="og:title" content="从零构建智能知识库：项目概览与环境搭建" />
+<meta property="og:type" content="article" />
+
+
+<meta name="description" content="在接下来的几篇文章中，我们将从零开始，手把手构建一个基于 OpenClaw + RAG的企业级智能知识库系统。它能够支持多格式文档上传，将内容存入向量数据库，并通过大语言模型提供精准、无幻觉的问答服务。 这篇文章，我会先帮你理清整体架构、技术选型，并搭建好完整的开发环境。 摘要 理解企业级智能知识库的核心痛点与 RAG 技术的解决方案 知道为什么选择 Open&amp;hellip;">
+<meta name="keywords" content="xx0-0xx,三七不是中药,Stariverse">
+<link rel="canonical" href="https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"从零构建智能知识库：项目概览与环境搭建","url":"https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/","description":"在接下来的几篇文章中，我们将从零开始，手把手构建一个基于 OpenClaw + RAG的企业级智能知识库系统。它能够支持多格式文档上传，将内容存入向量数据库，并通过大语言模型提供精准、无幻觉的问答服务。 这篇文章，我会先帮你理清整体架构、技术选型，并搭建好完整的开发环境。 摘要 理解企业级智能知识库的核心痛点与 RAG 技术的解决方案 知道为什么选择 Open\u0026hellip;","datePublished":"2026-03-24T18:52:11+08:00","dateModified":"2026-05-18T19:18:59+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://www.xx0-0xx.space","name":"Stariverse","position":1},{"@type":"ListItem","item":"https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/","name":"从零构建智能知识库：项目概览与环境搭建","position":2}]}</script>
+<meta property="og:title" content="从零构建智能知识库：项目概览与环境搭建">
+<meta property="og:description" content="在接下来的几篇文章中，我们将从零开始，手把手构建一个基于 OpenClaw + RAG的企业级智能知识库系统。它能够支持多格式文档上传，将内容存入向量数据库，并通过大语言模型提供精准、无幻觉的问答服务。 这篇文章，我会先帮你理清整体架构、技术选型，并搭建好完整的开发环境。 摘要 理解企业级智能知识库的核心痛点与 RAG 技术的解决方案 知道为什么选择 Open&amp;hellip;">
+<meta property="og:url" content="https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Stariverse">
+<meta property="og:image" content="/images/avatar.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/">
+<meta name="twitter:title" content="从零构建智能知识库：项目概览与环境搭建">
+<meta name="twitter:description" content="在接下来的几篇文章中，我们将从零开始，手把手构建一个基于 OpenClaw + RAG的企业级智能知识库系统。它能够支持多格式文档上传，将内容存入向量数据库，并通过大语言模型提供精准、无幻觉的问答服务。 这篇文章，我会先帮你理清整体架构、技术选型，并搭建好完整的开发环境。 摘要 理解企业级智能知识库的核心痛点与 RAG 技术的解决方案 知道为什么选择 Open&amp;hellip;">
+<meta name="twitter:image" content="/images/avatar.png">
+</head>
+<body class="flavor-theme">
+
+  <header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <div class="top-bar">
+
+      
+      <div class="top-bar__left">
+        
+        <a href="https://www.xx0-0xx.space" class="site-avatar-link" aria-label="返回首页">
+          <img class="site-avatar" src="https://cdn.jsdelivr.net/gh/xx0-0xx/xx0-0xx.github.io@main/images/theme/6d8d2067-54ee-41ae-9387-6abfb926698d.png" alt="Stariverse" />
+        </a>
+        
+        <a href="https://www.xx0-0xx.space" class="site-name-link">Stariverse</a>
+      </div>
+
+      
+      <nav class="top-bar__nav" id="sectionBar">
+        
+        
+        <a class="nav-item" href="/">首页</a>
+        
+        <a class="nav-item" href="/post">博客</a>
+        
+        <a class="nav-item" href="/memos">闪念</a>
+        
+        <a class="nav-item" href="/archives">归档</a>
+        
+        <a class="nav-item" href="/tags">标签</a>
+        
+        <a class="nav-item" href="/links">友链</a>
+        
+        <a class="nav-item" href="/post/about">关于</a>
+        
+        
+      </nav>
+
+      
+      <div class="top-bar__right">
+        <button class="btn-icon btn-search search-btn" id="btnSearch" type="button" aria-label="搜索">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-sun" id="themeToggleSun" type="button"
+          aria-label="切换到浅色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 1C12.5523 1 13 1.44772 13 2V4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4V2C11 1.44772 11.4477 1 12 1Z"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12ZM12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9Z"></path>
+            <path d="M13 20C13 19.4477 12.5523 19 12 19C11.4477 19 11 19.4477 11 20V22C11 22.5523 11.4477 23 12 23C12.5523 23 13 22.5523 13 22V20Z"></path>
+            <path d="M4.22282 4.22289C4.61335 3.83236 5.24651 3.83236 5.63704 4.22289L7.04704 5.63289C7.43756 6.02341 7.43756 6.65658 7.04704 7.0471C6.65651 7.43762 6.02335 7.43762 5.63283 7.0471L4.22282 5.6371C3.8323 5.24658 3.8323 4.61341 4.22282 4.22289Z"></path>
+            <path d="M18.367 16.9529C17.9765 16.5623 17.3433 16.5623 16.9528 16.9529C16.5623 17.3434 16.5623 17.9766 16.9528 18.3671L18.3628 19.7771C18.7533 20.1676 19.3865 20.1676 19.777 19.7771C20.1675 19.3866 20.1675 18.7534 19.777 18.3629L18.367 16.9529Z"></path>
+            <path d="M1 12C1 11.4477 1.44772 11 2 11H4C4.55228 11 5 11.4477 5 12C5 12.5523 4.55228 13 4 13H2C1.44772 13 1 12.5523 1 12Z"></path>
+            <path d="M20 11C19.4477 11 19 11.4477 19 12C19 12.5523 19.4477 13 20 13H22C22.5523 13 23 12.5523 23 12C23 11.4477 22.5523 11 22 11H20Z"></path>
+            <path d="M7.04704 16.9529C7.43756 17.3434 7.43756 17.9766 7.04704 18.3671L5.63704 19.7771C5.24651 20.1676 4.61335 20.1676 4.22282 19.7771C3.8323 19.3866 3.8323 18.7534 4.22283 18.3629L5.63283 16.9529C6.02335 16.5623 6.65651 16.5623 7.04704 16.9529Z"></path>
+            <path d="M19.777 5.6371C20.1675 5.24657 20.1675 4.61341 19.777 4.22289C19.3865 3.83236 18.7533 3.83236 18.3628 4.22289L16.9528 5.63289C16.5623 6.02341 16.5623 6.65658 16.9528 7.0471C17.3433 7.43762 17.9765 7.43762 18.367 7.0471L19.777 5.6371Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-moon" id="themeToggleMoon" type="button"
+          aria-label="切换到深色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 11.5955 21.7564 11.2309 21.3827 11.0761C21.009 10.9213 20.5789 11.0069 20.2929 11.2929C19.287 12.2988 17.9226 12.864 16.5 12.864C15.0774 12.864 13.713 12.2988 12.7071 11.2929C11.7012 10.287 11.136 8.92261 11.136 7.5C11.136 6.07739 11.7012 4.71304 12.7071 3.70711C12.9931 3.42111 13.0787 2.99099 12.9239 2.61732C12.7691 2.24364 12.4045 2 12 2ZM7.55544 5.34824C8.27036 4.87055 9.05353 4.51389 9.87357 4.28778C9.39271 5.27979 9.13604 6.37666 9.13604 7.5C9.13604 9.45304 9.91189 11.3261 11.2929 12.7071C12.6739 14.0881 14.547 14.864 16.5 14.864C17.6233 14.864 18.7202 14.6073 19.7122 14.1264C19.4861 14.9465 19.1295 15.7296 18.6518 16.4446C17.7727 17.7602 16.5233 18.7855 15.0615 19.391C13.5997 19.9965 11.9911 20.155 10.4393 19.8463C8.88743 19.5376 7.46197 18.7757 6.34315 17.6569C5.21447 16.538 4.4624 15.1126 4.15372 13.5607C3.84504 12.0089 4.00347 10.4003 4.60897 8.93853C5.21447 7.47672 6.23985 6.22729 7.55544 5.34824Z"></path>
+            <path d="M19 2C19.5523 2 20 2.44772 20 3V4H21C21.5523 4 22 4.44772 22 5C22 5.55228 21.5523 6 21 6H20V7C20 7.55228 19.5523 8 19 8C18.4477 8 18 7.55228 18 7V6H17C16.4477 6 16 5.55228 16 5C16 4.44772 16.4477 4 17 4H18V3C18 2.44772 18.4477 2 19 2Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon btn-nav-toggle mobile-only" id="btnNavToggle" type="button" aria-label="切换导航">
+          <div class="hamburger" id="hamburger">
+            <span class="hamburger__line hamburger__line--top"></span>
+            <span class="hamburger__line hamburger__line--bottom"></span>
+          </div>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+
+<div class="header-spacer"></div>
+
+<script>
+(function(){
+  var btn = document.getElementById('btnNavToggle');
+  var nav = document.getElementById('sectionBar');
+  var hamburger = document.getElementById('hamburger');
+  if (btn && nav) {
+    btn.addEventListener('click', function(){
+      nav.classList.toggle('top-bar__nav--open');
+      if (hamburger) hamburger.classList.toggle('is-active');
+    });
+    nav.querySelectorAll('.nav-item').forEach(function(item){
+      item.addEventListener('click', function(){
+        nav.classList.remove('top-bar__nav--open');
+        if (hamburger) hamburger.classList.remove('is-active');
+      });
+    });
+  }
+
+  var root = document.documentElement;
+  var applyTheme = function(theme, persist){
+    if (theme === 'light') {
+      root.classList.add('theme-light');
+    } else {
+      root.classList.remove('theme-light');
+    }
+    if (persist) {
+      try { localStorage.setItem('flavor-theme', theme); } catch (e) {}
+    }
+  };
+  document.querySelectorAll('.theme-toggle').forEach(function(el){
+    el.addEventListener('click', function(){
+      applyTheme(root.classList.contains('theme-light') ? 'dark' : 'light', true);
+    });
+  });
+})();
+</script>
+
+  <main class="site-main" role="main">
+    
+<article class="article-container">
+  <header class="article-header">
+    <h1 class="article-title">从零构建智能知识库：项目概览与环境搭建</h1>
+    <div class="article-meta">
+      
+      <span class="article-meta__item">2026-03-24</span>
+      
+      <span class="article-meta__sep">·</span>
+      <span class="article-meta__item">14 分钟阅读</span>
+      
+    </div>
+    
+  </header>
+
+  
+
+  <div class="article-content">
+    <p>在接下来的几篇文章中，我们将从零开始，手把手构建一个<strong>基于 OpenClaw + RAG的企业级智能知识库系统</strong>。它能够支持多格式文档上传，将内容存入向量数据库，并通过大语言模型提供精准、无幻觉的问答服务。</p>
+<p>这篇文章，我会先帮你理清整体架构、技术选型，并搭建好完整的开发环境。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解企业级智能知识库的核心痛点与 RAG 技术的解决方案</li>
+<li>知道为什么选择 OpenClaw + FastAPI + Node.js 这套组合，而不是纯 LangChain 方案</li>
+<li>掌握 OpenClaw AI 网关的基本概念与核心优势</li>
+<li>在本地创建好 Python 和 Node.js 的开发环境</li>
+<li>成功启动 FastAPI 服务、OpenClaw 网关和 Node.js 前端服务，为后续开发铺路</li>
+</ul>
+<hr />
+<h2 id="1-">1. 什么是企业级智能知识库？为什么我们需要它？</h2>
+<h3 id="11-">1.1 传统知识库的痛点</h3>
+<p>在数字化转型的今天，几乎每个企业都积累了海量的文档资料：产品手册、技术文档、培训材料、客户案例、规章制度……但这些宝贵的知识资产往往处于&quot;沉睡&quot;状态：</p>
+<ul>
+<li><strong>查找困难</strong>：员工需要在多个系统、数百个文件夹中翻找信息，平均每天浪费1-2小时</li>
+<li><strong>知识断层</strong>：老员工离职带走核心知识，新员工上手慢</li>
+<li><strong>信息不一致</strong>：不同版本的文档同时存在，导致错误决策</li>
+<li><strong>大模型幻觉</strong>：直接使用通用大模型回答企业内部问题，经常出现&quot;一本正经地胡说八道&quot;</li>
+</ul>
+<h3 id="12-rag-">1.2 RAG 技术如何解决这些问题</h3>
+<p>RAG（Retrieval-Augmented Generation，检索增强生成）是让大语言模型&quot;按需翻阅参考资料&quot;的技术。它的核心流程是：</p>
+<ol>
+<li><strong>文档加载与切块</strong>：将原始文档（PDF、Word、Markdown 等）拆成适合模型处理的小段</li>
+<li><strong>向量化</strong>：用 Embedding 模型把每段文本转成向量，存入向量数据库</li>
+<li><strong>检索</strong>：用户提问时，把问题也转成向量，从数据库中找出语义最相关的若干段落</li>
+<li><strong>生成</strong>：把检索到的内容作为上下文，连同问题一起发给大模型，生成基于事实的答案</li>
+</ol>
+<p>这样，大模型就不必&quot;死记硬背&quot;所有知识，而是可以引用最新、最准确的企业内部资料，从根本上解决幻觉问题。</p>
+<hr />
+<h2 id="2-">2. 技术选型深度对比：为什么选择这套组合？</h2>
+<p>在项目开始前，我们调研了市场上几乎所有主流的 AI 应用开发技术栈，并进行了全面的对比分析。</p>
+<h3 id="21-">2.1 传统方案的局限性</h3>
+<p><strong>方案一：纯 LangChain/LlamaIndex 原生开发</strong></p>
+<ul>
+<li>优点：灵活性高，社区生态丰富</li>
+<li>缺点：代码量巨大，重复造轮子；缺乏统一的会话管理；生产级特性需要自己实现；模型切换成本高</li>
+</ul>
+<p><strong>方案二：使用现成的知识库 SaaS 服务</strong></p>
+<ul>
+<li>优点：开箱即用，无需开发</li>
+<li>缺点：数据安全风险；定制化能力差；成本高昂；无法与企业现有系统深度集成</li>
+</ul>
+<p><strong>方案三：基于 ChatGPT 插件或 Claude Artifacts 开发</strong></p>
+<ul>
+<li>优点：开发简单，利用大模型原生能力</li>
+<li>缺点：完全依赖第三方平台；数据必须经过大模型服务商；功能受限；无法私有化部署</li>
+</ul>
+<h3 id="22-openclaw--rag--fastapi--nodejs">2.2 我们的技术栈：OpenClaw + RAG + FastAPI + Node.js</h3>
+<p>经过反复权衡，我们最终选择了这个技术组合，它完美平衡了开发效率、功能强大性、生产可靠性和数据安全性。</p>
+<p>我们整体的技术栈可以用一张图概括：</p>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                      前端层 (Node.js + React)            │
+│  登录注册 │ 文档管理 │ 智能问答 │ 系统设置 │ 统计分析    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      业务层 (FastAPI)                    │
+│  用户认证 │ 文档处理 │ 向量存储 │ 权限控制 │ 日志管理    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      AI网关层 (OpenClaw)                 │
+│  模型管理 │ 会话管理 │ 技能调度 │ 流式输出 │ 错误处理    │
+│                           │                             │
+│  ┌─────────────────────┐  │  ┌─────────────────────┐    │
+│  │   Claude 3 Opus     │  │  │   RAG检索技能       │    │
+│  │   GPT-4o            │&lt;─┼─&gt;│   重排序技能        │    │
+│  │   本地Ollama模型    │  │  │   多模态技能        │    │
+│  └─────────────────────┘  │  └─────────────────────┘    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      数据层                              │
+│  PostgreSQL │ Chroma/Pinecone │ 文件存储 │ 缓存系统     │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<p>各组件具体分工如下：</p>
+<h3 id="221-fastapi--">2.2.1 FastAPI —— 业务逻辑后端</h3>
+<ul>
+<li>负责所有非 AI 相关的业务任务：用户认证、文档上传与解析、向量存储、权限控制</li>
+<li>提供 RESTful API，例如 <code>POST /api/documents/upload</code>、<code>GET /api/documents</code></li>
+<li>使用 FastAPI 是因为它异步性能出色、自动生成文档，且与 Python AI 生态无缝衔接</li>
+</ul>
+<h3 id="222-nodejs--react--">2.2.2 Node.js + React —— 前端用户界面</h3>
+<ul>
+<li>提供一个现代化的 Web 界面，让用户上传文档、提问和查看结果</li>
+<li>处理流式输出，实现流畅的打字机效果</li>
+<li>我们选用 Vite + React + TypeScript + Ant Design，这是目前最成熟的前端技术栈之一</li>
+</ul>
+<h3 id="223-openclaw--ai-">2.2.3 OpenClaw —— AI 智能体网关（核心）</h3>
+<ul>
+<li>统一管理所有大模型调用，一行配置切换 Claude/GPT/Gemini/本地模型</li>
+<li>基于 MCP（Model Context Protocol）协议的模块化技能系统，集成 RAG 只需几十行代码</li>
+<li>内置生产级会话管理、状态同步、历史消息管理</li>
+<li>原生支持 SSE 和 WebSocket 流式输出，打字机效果一行代码实现</li>
+</ul>
+<h3 id="23-openclaw-">2.3 OpenClaw 的独特优势</h3>
+<p>OpenClaw 是整个架构中最关键的组件，也是我们选择这个技术栈的核心理由。它不是另一个 LangChain，而是一个更高层次的<strong>AI 智能体运行时与网关平台</strong>。</p>
+<p><strong>一句话总结</strong>：LangChain 让你能构建 AI 应用，OpenClaw 让你能<strong>快速构建并在生产环境运行</strong>AI 应用。</p>
+<hr />
+<h2 id="3-">3. 本地开发环境准备</h2>
+<p>开始之前，请确保你的机器上已经安装：</p>
+<ul>
+<li><strong>Python 3.11+</strong>（推荐 3.11 或 3.12，3.13 部分依赖可能有兼容性问题）</li>
+<li><strong>Node.js 20+</strong>（LTS 版本，推荐 20.12+）</li>
+<li><strong>pnpm</strong>（比 npm/yarn 更快更高效）</li>
+<li><strong>Git</strong>（版本控制）</li>
+<li>（可选）<strong>Docker Desktop</strong>，用于后续部署和向量数据库容器</li>
+</ul>
+<p>你可以用以下命令检查：</p>
+<pre><code class="language-bash">python --version
+node --version
+pnpm --version
+git --version
+</code></pre>
+<p>如果 pnpm 未安装，可以使用以下命令安装：</p>
+<pre><code class="language-bash">npm install -g pnpm
+</code></pre>
+<hr />
+<h2 id="4-">4. 项目初始化</h2>
+<p>我们将在一个大的仓库下包含三个子目录：<code>backend/</code>（FastAPI）、<code>openclaw/</code>（OpenClaw 配置与技能）和 <code>frontend/</code>（Node.js + React）。</p>
+<h3 id="41-">4.1 创建项目目录</h3>
+<pre><code class="language-bash">mkdir enterprise-knowledge-base &amp;&amp; cd enterprise-knowledge-base
+mkdir backend openclaw frontend
+git init
+</code></pre>
+<p>创建 <code>.gitignore</code> 文件：</p>
+<pre><code class="language-bash"># Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Node.js
+node_modules/
+dist/
+.DS_Store
+</code></pre>
+<h3 id="42--fastapi-">4.2 搭建 FastAPI 后端</h3>
+<p>进入 <code>backend</code> 目录，创建虚拟环境并安装基本依赖：</p>
+<pre><code class="language-bash">cd backend
+python -m venv venv
+source venv/bin/activate   # Windows 使用 venv\Scripts\activate
+
+pip install fastapi uvicorn[standard] python-dotenv python-multipart
+</code></pre>
+<p>新建 <code>main.py</code>：</p>
+<pre><code class="language-python">from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+app = FastAPI(title=&quot;企业级智能知识库 API&quot;, version=&quot;0.1.0&quot;)
+
+# 配置 CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[&quot;*&quot;],  # 开发环境允许所有来源，生产环境请限制为具体域名
+    allow_credentials=True,
+    allow_methods=[&quot;*&quot;],
+    allow_headers=[&quot;*&quot;],
+)
+
+@app.get(&quot;/&quot;)
+async def root():
+    return {&quot;message&quot;: &quot;企业级智能知识库后端已启动&quot;, &quot;version&quot;: &quot;0.1.0&quot;}
+
+@app.get(&quot;/api/health&quot;)
+async def health_check():
+    return {&quot;status&quot;: &quot;healthy&quot;}
+</code></pre>
+<p>现在可以启动服务测试：</p>
+<pre><code class="language-bash">uvicorn main:app --reload --port 8000
+</code></pre>
+<p>打开浏览器访问 <code>http://localhost:8000</code>，你应该能看到返回的 JSON 消息。<br />
+FastAPI 还自带交互式文档，访问 <code>http://localhost:8000/docs</code> 查看。</p>
+<h3 id="43--openclaw-ai-">4.3 搭建 OpenClaw AI 网关</h3>
+<p>另开一个终端，进入 <code>openclaw</code> 目录：</p>
+<pre><code class="language-bash">cd ../openclaw
+pnpm init -y
+pnpm add openclaw
+</code></pre>
+<p>在 <code>package.json</code> 中添加脚本：</p>
+<pre><code class="language-json">&quot;scripts&quot;: {
+  &quot;start&quot;: &quot;openclaw start&quot;,
+  &quot;init&quot;: &quot;openclaw init&quot;
+}
+</code></pre>
+<p>初始化 OpenClaw 配置：</p>
+<pre><code class="language-bash">pnpm run init
+</code></pre>
+<p>按照提示输入你的 Claude API Key（也可以稍后在配置文件中修改），选择默认模型为 <code>claude-3-sonnet-20240229</code>。</p>
+<p>启动 OpenClaw 网关：</p>
+<pre><code class="language-bash">pnpm run start
+</code></pre>
+<p>OpenClaw 会在本地 <code>127.0.0.1:18789</code> 端口启动，同时会自动打开 Web 管理界面。你可以在界面中进行简单的对话测试，确认 API Key 配置正确。</p>
+<h3 id="44--nodejs-">4.4 搭建 Node.js 前端</h3>
+<p>再开一个终端，进入 <code>frontend</code> 目录：</p>
+<pre><code class="language-bash">cd ../frontend
+pnpm create vite@latest . -- --template react-ts
+pnpm install
+pnpm add axios antd @ant-design/icons zustand react-router-dom
+</code></pre>
+<p>修改 <code>src/App.tsx</code>：</p>
+<pre><code class="language-tsx">import { Button, Space, Typography } from 'antd';
+import { useState } from 'react';
+import axios from 'axios';
+
+const { Title, Text } = Typography;
+
+function App() {
+  const [backendStatus, setBackendStatus] = useState&lt;string&gt;('检查中...');
+  const [openclawStatus, setOpenclawStatus] = useState&lt;string&gt;('检查中...');
+
+  const checkBackend = async () =&gt; {
+    try {
+      const response = await axios.get('http://localhost:8000/api/health');
+      setBackendStatus(`正常 (${response.data.status})`);
+    } catch (error) {
+      setBackendStatus('连接失败');
+    }
+  };
+
+  const checkOpenClaw = async () =&gt; {
+    try {
+      const response = await axios.get('http://localhost:127.0.0.1:18789/api/health');
+      setOpenclawStatus('正常');
+    } catch (error) {
+      setOpenclawStatus('连接失败');
+    }
+  };
+
+  return (
+    &lt;div style={{ padding: '50px' }}&gt;
+      &lt;Title level={2}&gt;企业级智能知识库&lt;/Title&gt;
+      &lt;Space direction=&quot;vertical&quot; size=&quot;large&quot; style={{ marginTop: '30px' }}&gt;
+        &lt;div&gt;
+          &lt;Text strong&gt;后端服务状态：&lt;/Text&gt;
+          &lt;Text&gt;{backendStatus}&lt;/Text&gt;
+          &lt;Button onClick={checkBackend} style={{ marginLeft: '10px' }}&gt;刷新&lt;/Button&gt;
+        &lt;/div&gt;
+        &lt;div&gt;
+          &lt;Text strong&gt;OpenClaw 网关状态：&lt;/Text&gt;
+          &lt;Text&gt;{openclawStatus}&lt;/Text&gt;
+          &lt;Button onClick={checkOpenClaw} style={{ marginLeft: '10px' }}&gt;刷新&lt;/Button&gt;
+        &lt;/div&gt;
+      &lt;/Space&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default App;
+</code></pre>
+<p>启动前端开发服务器：</p>
+<pre><code class="language-bash">pnpm run dev
+</code></pre>
+<p>访问 <code>http://localhost:5173</code>，你应该能看到前端页面，并且可以检查后端和 OpenClaw 网关的连接状态。</p>
+<hr />
+<h2 id="5-">5. 项目结构总览</h2>
+<p>至此，你的项目目录应该像这样：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── main.py
+│   └── requirements.txt   (后续生成)
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   └── .claw/             (OpenClaw 自动生成的配置目录)
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    │   ├── App.tsx
+    │   └── main.tsx
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<p>三个服务都成功跑起来了，意味着我们的开发环境已经完全就绪。</p>
+<hr />
+<h2 id="6-">6. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>分析了企业级智能知识库的核心痛点与 RAG 技术的解决方案</li>
+<li>对比了不同技术栈的优缺点，明确了 OpenClaw + FastAPI + Node.js 的技术方案</li>
+<li>理解了 OpenClaw 作为 AI 网关的核心定位与独特优势</li>
+<li>搭建了完整的本地开发环境，包括 Python 虚拟环境和 Node.js 环境</li>
+<li>成功启动了 FastAPI 后端服务、OpenClaw AI 网关和 React 前端服务</li>
+<li>为后续的开发打下了坚实的基础</li>
+</ul>
+<p>需要我帮你生成<strong>完整的 requirements.txt 文件</strong>和<strong>优化后的项目结构模板</strong>吗？</p>
+
+  </div>
+
+  
+  <nav class="post-nav">
+    
+    <a href="/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/" class="post-nav-card post-nav-card--prev">
+      
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">上一篇</span>
+        <span class="post-nav-card__title">OpenClaw 核心概念与第一个 MCP 技能开发</span>
+      </div>
+      <span class="post-nav-card__arrow">&larr;</span>
+    </a>
+    
+    
+    <a href="/post/web3-quan-zhan-kai-fa-shi-zhanuniswap-v2-liu-dong-xing-guan-li/" class="post-nav-card post-nav-card--next">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">下一篇</span>
+        <span class="post-nav-card__title">Web3 全栈开发实战：Uniswap V2 流动性管理</span>
+      </div>
+      
+      <span class="post-nav-card__arrow">&rarr;</span>
+    </a>
+    
+  </nav>
+
+  
+  
+
+
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+  <div class="footer-inner">
+
+    
+    
+    <nav class="footer-nav" aria-label="页脚导航">
+      
+      <a class="footer-nav__link" href="/">首页</a>
+      
+      <a class="footer-nav__link" href="/post">博客</a>
+      
+      <a class="footer-nav__link" href="/memos">闪念</a>
+      
+      <a class="footer-nav__link" href="/archives">归档</a>
+      
+      <a class="footer-nav__link" href="/tags">标签</a>
+      
+      <a class="footer-nav__link" href="/links">友链</a>
+      
+      <a class="footer-nav__link" href="/post/about">关于</a>
+      
+    </nav>
+    
+
+    
+    <div class="footer-social">
+      
+      <a class="footer-social__link" href="xx0-0xx" target="_blank" rel="noopener noreferrer"
+        aria-label="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+        </svg>
+      </a>
+      
+      
+      
+      <a class="footer-social__link" href="/feed.xml" aria-label="RSS">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.18 15.64a2.18 2.18 0 110 4.36 2.18 2.18 0 010-4.36zM4 4.44A15.56 15.56 0 0119.56 20h-2.83A12.73 12.73 0 004 7.27V4.44zm0 5.66a9.9 9.9 0 019.9 9.9h-2.83A7.07 7.07 0 004 12.93V10.1z"/>
+        </svg>
+      </a>
+    </div>
+
+    
+    <div class="footer-copyright">
+      <p>&copy; 2026 Stariverse. All rights reserved.</p>
+    </div>
+
+    
+    
+    <div class="footer-custom">
+      Stariverse
+    </div>
+    
+
+    
+    <div class="footer-powered">
+      <span>Powered by <a href="https://gridea.pro" target="_blank" rel="noopener noreferrer">Gridea Pro</a></span>
+    </div>
+
+  </div>
+</footer>
+
+  
+  <div class="search-overlay" id="searchOverlay" style="display:none;">
+  <div class="search-modal">
+    <div class="search-header">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索文章..." autocomplete="off" />
+      <span class="search-kbd">&#8984;K</span>
+      <button class="search-close" id="searchClose" type="button" aria-label="关闭搜索">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<script src="/scripts/search.js"></script>
+  
+
+  
+
+  
+
+  
+
+<script>console.log("\n%c ✦ Gridea Pro v1.1.1 %c · Theme: flavor-theme v1.0.0 · https://gridea.pro %c\n","color:#fadfa3;background:#111111;padding:9px 14px;border-radius:4px 0 0 4px;font-weight:500;font-size:12px","color:#e05c00;background:#fff3ec;padding:9px 14px;border-radius:0 4px 4px 0;font-size:11px","")</script>
+</body>
+</html>

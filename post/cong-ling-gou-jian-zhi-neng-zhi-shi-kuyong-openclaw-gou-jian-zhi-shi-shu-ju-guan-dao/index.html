@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<link rel="stylesheet" href="/styles/main.min.css">
+
+
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+
+
+<style>:root { --heatmap-color: #39d353; }</style>
+
+
+
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('flavor-theme');
+      var theme = saved || 'dark';
+      if (theme === 'light') {
+        document.documentElement.classList.add('theme-light');
+      }
+    } catch (e) { }
+  })();
+</script>
+  <meta name="generator" content="Gridea Pro 1.1.1">
+  <title>OpenClaw 核心概念与第一个 MCP 技能开发 | Stariverse</title>
+  
+<meta property="og:title" content="OpenClaw 核心概念与第一个 MCP 技能开发" />
+<meta property="og:type" content="article" />
+
+
+<meta name="description" content="在上一篇文章中，我们已经搭建好了完整的开发环境，成功启动了 FastAPI 后端、OpenClaw AI 网关和 React 前端服务。这篇文章，我们将深入学习 OpenClaw 的核心机制，特别是 MCP（Model Context Protocol）协议，并开发我们的第一个实用技能——文档解析技能。 摘要 理解 OpenClaw 的三层架构与核心工作原理 掌握 MCP（&amp;hellip;">
+<meta name="keywords" content="xx0-0xx,三七不是中药,Stariverse">
+<link rel="canonical" href="https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"OpenClaw 核心概念与第一个 MCP 技能开发","url":"https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/","description":"在上一篇文章中，我们已经搭建好了完整的开发环境，成功启动了 FastAPI 后端、OpenClaw AI 网关和 React 前端服务。这篇文章，我们将深入学习 OpenClaw 的核心机制，特别是 MCP（Model Context Protocol）协议，并开发我们的第一个实用技能——文档解析技能。 摘要 理解 OpenClaw 的三层架构与核心工作原理 掌握 MCP（\u0026hellip;","datePublished":"2026-03-26T22:03:44+08:00","dateModified":"2026-05-18T19:11:42+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://www.xx0-0xx.space","name":"Stariverse","position":1},{"@type":"ListItem","item":"https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/","name":"OpenClaw 核心概念与第一个 MCP 技能开发","position":2}]}</script>
+<meta property="og:title" content="OpenClaw 核心概念与第一个 MCP 技能开发">
+<meta property="og:description" content="在上一篇文章中，我们已经搭建好了完整的开发环境，成功启动了 FastAPI 后端、OpenClaw AI 网关和 React 前端服务。这篇文章，我们将深入学习 OpenClaw 的核心机制，特别是 MCP（Model Context Protocol）协议，并开发我们的第一个实用技能——文档解析技能。 摘要 理解 OpenClaw 的三层架构与核心工作原理 掌握 MCP（&amp;hellip;">
+<meta property="og:url" content="https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Stariverse">
+<meta property="og:image" content="/images/avatar.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://www.xx0-0xx.space/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuyong-openclaw-gou-jian-zhi-shi-shu-ju-guan-dao/">
+<meta name="twitter:title" content="OpenClaw 核心概念与第一个 MCP 技能开发">
+<meta name="twitter:description" content="在上一篇文章中，我们已经搭建好了完整的开发环境，成功启动了 FastAPI 后端、OpenClaw AI 网关和 React 前端服务。这篇文章，我们将深入学习 OpenClaw 的核心机制，特别是 MCP（Model Context Protocol）协议，并开发我们的第一个实用技能——文档解析技能。 摘要 理解 OpenClaw 的三层架构与核心工作原理 掌握 MCP（&amp;hellip;">
+<meta name="twitter:image" content="/images/avatar.png">
+</head>
+<body class="flavor-theme">
+
+  <header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <div class="top-bar">
+
+      
+      <div class="top-bar__left">
+        
+        <a href="https://www.xx0-0xx.space" class="site-avatar-link" aria-label="返回首页">
+          <img class="site-avatar" src="https://cdn.jsdelivr.net/gh/xx0-0xx/xx0-0xx.github.io@main/images/theme/6d8d2067-54ee-41ae-9387-6abfb926698d.png" alt="Stariverse" />
+        </a>
+        
+        <a href="https://www.xx0-0xx.space" class="site-name-link">Stariverse</a>
+      </div>
+
+      
+      <nav class="top-bar__nav" id="sectionBar">
+        
+        
+        <a class="nav-item" href="/">首页</a>
+        
+        <a class="nav-item" href="/post">博客</a>
+        
+        <a class="nav-item" href="/memos">闪念</a>
+        
+        <a class="nav-item" href="/archives">归档</a>
+        
+        <a class="nav-item" href="/tags">标签</a>
+        
+        <a class="nav-item" href="/links">友链</a>
+        
+        <a class="nav-item" href="/post/about">关于</a>
+        
+        
+      </nav>
+
+      
+      <div class="top-bar__right">
+        <button class="btn-icon btn-search search-btn" id="btnSearch" type="button" aria-label="搜索">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-sun" id="themeToggleSun" type="button"
+          aria-label="切换到浅色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 1C12.5523 1 13 1.44772 13 2V4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4V2C11 1.44772 11.4477 1 12 1Z"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12ZM12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9Z"></path>
+            <path d="M13 20C13 19.4477 12.5523 19 12 19C11.4477 19 11 19.4477 11 20V22C11 22.5523 11.4477 23 12 23C12.5523 23 13 22.5523 13 22V20Z"></path>
+            <path d="M4.22282 4.22289C4.61335 3.83236 5.24651 3.83236 5.63704 4.22289L7.04704 5.63289C7.43756 6.02341 7.43756 6.65658 7.04704 7.0471C6.65651 7.43762 6.02335 7.43762 5.63283 7.0471L4.22282 5.6371C3.8323 5.24658 3.8323 4.61341 4.22282 4.22289Z"></path>
+            <path d="M18.367 16.9529C17.9765 16.5623 17.3433 16.5623 16.9528 16.9529C16.5623 17.3434 16.5623 17.9766 16.9528 18.3671L18.3628 19.7771C18.7533 20.1676 19.3865 20.1676 19.777 19.7771C20.1675 19.3866 20.1675 18.7534 19.777 18.3629L18.367 16.9529Z"></path>
+            <path d="M1 12C1 11.4477 1.44772 11 2 11H4C4.55228 11 5 11.4477 5 12C5 12.5523 4.55228 13 4 13H2C1.44772 13 1 12.5523 1 12Z"></path>
+            <path d="M20 11C19.4477 11 19 11.4477 19 12C19 12.5523 19.4477 13 20 13H22C22.5523 13 23 12.5523 23 12C23 11.4477 22.5523 11 22 11H20Z"></path>
+            <path d="M7.04704 16.9529C7.43756 17.3434 7.43756 17.9766 7.04704 18.3671L5.63704 19.7771C5.24651 20.1676 4.61335 20.1676 4.22282 19.7771C3.8323 19.3866 3.8323 18.7534 4.22283 18.3629L5.63283 16.9529C6.02335 16.5623 6.65651 16.5623 7.04704 16.9529Z"></path>
+            <path d="M19.777 5.6371C20.1675 5.24657 20.1675 4.61341 19.777 4.22289C19.3865 3.83236 18.7533 3.83236 18.3628 4.22289L16.9528 5.63289C16.5623 6.02341 16.5623 6.65658 16.9528 7.0471C17.3433 7.43762 17.9765 7.43762 18.367 7.0471L19.777 5.6371Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-moon" id="themeToggleMoon" type="button"
+          aria-label="切换到深色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 11.5955 21.7564 11.2309 21.3827 11.0761C21.009 10.9213 20.5789 11.0069 20.2929 11.2929C19.287 12.2988 17.9226 12.864 16.5 12.864C15.0774 12.864 13.713 12.2988 12.7071 11.2929C11.7012 10.287 11.136 8.92261 11.136 7.5C11.136 6.07739 11.7012 4.71304 12.7071 3.70711C12.9931 3.42111 13.0787 2.99099 12.9239 2.61732C12.7691 2.24364 12.4045 2 12 2ZM7.55544 5.34824C8.27036 4.87055 9.05353 4.51389 9.87357 4.28778C9.39271 5.27979 9.13604 6.37666 9.13604 7.5C9.13604 9.45304 9.91189 11.3261 11.2929 12.7071C12.6739 14.0881 14.547 14.864 16.5 14.864C17.6233 14.864 18.7202 14.6073 19.7122 14.1264C19.4861 14.9465 19.1295 15.7296 18.6518 16.4446C17.7727 17.7602 16.5233 18.7855 15.0615 19.391C13.5997 19.9965 11.9911 20.155 10.4393 19.8463C8.88743 19.5376 7.46197 18.7757 6.34315 17.6569C5.21447 16.538 4.4624 15.1126 4.15372 13.5607C3.84504 12.0089 4.00347 10.4003 4.60897 8.93853C5.21447 7.47672 6.23985 6.22729 7.55544 5.34824Z"></path>
+            <path d="M19 2C19.5523 2 20 2.44772 20 3V4H21C21.5523 4 22 4.44772 22 5C22 5.55228 21.5523 6 21 6H20V7C20 7.55228 19.5523 8 19 8C18.4477 8 18 7.55228 18 7V6H17C16.4477 6 16 5.55228 16 5C16 4.44772 16.4477 4 17 4H18V3C18 2.44772 18.4477 2 19 2Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon btn-nav-toggle mobile-only" id="btnNavToggle" type="button" aria-label="切换导航">
+          <div class="hamburger" id="hamburger">
+            <span class="hamburger__line hamburger__line--top"></span>
+            <span class="hamburger__line hamburger__line--bottom"></span>
+          </div>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+
+<div class="header-spacer"></div>
+
+<script>
+(function(){
+  var btn = document.getElementById('btnNavToggle');
+  var nav = document.getElementById('sectionBar');
+  var hamburger = document.getElementById('hamburger');
+  if (btn && nav) {
+    btn.addEventListener('click', function(){
+      nav.classList.toggle('top-bar__nav--open');
+      if (hamburger) hamburger.classList.toggle('is-active');
+    });
+    nav.querySelectorAll('.nav-item').forEach(function(item){
+      item.addEventListener('click', function(){
+        nav.classList.remove('top-bar__nav--open');
+        if (hamburger) hamburger.classList.remove('is-active');
+      });
+    });
+  }
+
+  var root = document.documentElement;
+  var applyTheme = function(theme, persist){
+    if (theme === 'light') {
+      root.classList.add('theme-light');
+    } else {
+      root.classList.remove('theme-light');
+    }
+    if (persist) {
+      try { localStorage.setItem('flavor-theme', theme); } catch (e) {}
+    }
+  };
+  document.querySelectorAll('.theme-toggle').forEach(function(el){
+    el.addEventListener('click', function(){
+      applyTheme(root.classList.contains('theme-light') ? 'dark' : 'light', true);
+    });
+  });
+})();
+</script>
+
+  <main class="site-main" role="main">
+    
+<article class="article-container">
+  <header class="article-header">
+    <h1 class="article-title">OpenClaw 核心概念与第一个 MCP 技能开发</h1>
+    <div class="article-meta">
+      
+      <span class="article-meta__item">2026-03-26</span>
+      
+      <span class="article-meta__sep">·</span>
+      <span class="article-meta__item">17 分钟阅读</span>
+      
+    </div>
+    
+  </header>
+
+  
+
+  <div class="article-content">
+    <p>在上一篇文章中，我们已经搭建好了完整的开发环境，成功启动了 FastAPI 后端、OpenClaw AI 网关和 React 前端服务。这篇文章，我们将深入学习 OpenClaw 的核心机制，特别是 MCP（Model Context Protocol）协议，并开发我们的第一个实用技能——文档解析技能。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解 OpenClaw 的三层架构与核心工作原理</li>
+<li>掌握 MCP（Model Context Protocol）协议的基本概念</li>
+<li>学会开发、注册和测试 OpenClaw 自定义技能</li>
+<li>完成第一个实用技能：多格式文档解析技能</li>
+<li>实现通过 API 调用 OpenClaw 技能，为后续 RAG 集成铺路</li>
+</ul>
+<hr />
+<h2 id="1-openclaw-">1. OpenClaw 核心机制深度解析</h2>
+<p>在开始开发之前，我们需要先理解 OpenClaw 是如何工作的，这将帮助我们更好地设计和实现我们的知识库系统。</p>
+<h3 id="11-openclaw-">1.1 OpenClaw 三层架构</h3>
+<p>OpenClaw 采用了清晰的分层设计，确保系统的可扩展性和可靠性：</p>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                      控制层（Gateway 网关）              │
+│  会话管理 │ 通道路由 │ 工具调度 │ 状态同步 │ 流式输出    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      执行层（Node/Agent 节点）           │
+│  技能执行 │ 系统访问 │ 代码运行 │ 沙箱隔离 │ 错误处理    │
+└───────────────────────────┬─────────────────────────────┘
+                            │
+┌───────────────────────────┼─────────────────────────────┐
+│                      生态层（Skills &amp; Workspace）        │
+│  官方技能市场 │ 社区技能 │ 自定义技能 │ 工作空间配置    │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<ul>
+<li><strong>控制层</strong>：系统的&quot;神经中枢&quot;，运行在 <code>127.0.0.1:18789</code> 端口，负责接收所有请求，管理会话生命周期，调度技能执行，并将结果返回给调用方</li>
+<li><strong>执行层</strong>：分布在终端的&quot;执行肢体&quot;，负责实际运行技能代码，可以安全地访问宿主系统的资源</li>
+<li><strong>生态层</strong>：基于 MCP 协议的模块化插件系统，所有功能都以技能的形式存在，可以自由安装、卸载和开发</li>
+</ul>
+<h3 id="12--mcp-">1.2 什么是 MCP 协议？</h3>
+<p>MCP（Model Context Protocol）是 OpenClaw 定义的一套标准化协议，用于大模型与外部工具之间的通信。它解决了传统工具调用中存在的以下问题：</p>
+<ul>
+<li>不同大模型的工具调用格式不统一</li>
+<li>工具描述不清晰，导致大模型不知道如何正确调用</li>
+<li>缺乏统一的错误处理和状态同步机制</li>
+<li>工具权限管理混乱</li>
+</ul>
+<p>一个标准的 MCP 技能包含三个部分：</p>
+<ol>
+<li><strong>元数据</strong>：技能的名称、描述、作者、版本等信息</li>
+<li><strong>参数 Schema</strong>：使用 JSON Schema 定义技能的输入参数</li>
+<li><strong>执行函数</strong>：实际处理请求的代码逻辑</li>
+</ol>
+<h3 id="13-openclaw-">1.3 OpenClaw 技能调用流程</h3>
+<p>当用户提出一个问题时，OpenClaw 会执行以下步骤：</p>
+<ol>
+<li>接收用户问题，分析意图</li>
+<li>根据技能描述，判断是否需要调用工具</li>
+<li>如果需要，生成符合参数 Schema 的工具调用请求</li>
+<li>将请求发送给对应的执行节点</li>
+<li>执行节点运行技能代码，返回结果</li>
+<li>将工具返回的结果与用户问题一起发送给大模型</li>
+<li>大模型生成最终回答，返回给用户</li>
+</ol>
+<hr />
+<h2 id="2--mcp-hello-world">2. 开发第一个 MCP 技能：Hello World</h2>
+<p>让我们从最简单的 Hello World 技能开始，熟悉 MCP 技能的开发流程。</p>
+<h3 id="21-">2.1 创建技能目录</h3>
+<p>在 <code>openclaw</code> 目录下创建一个 <code>skills</code> 文件夹，用于存放我们所有的自定义技能：</p>
+<pre><code class="language-bash">cd openclaw
+mkdir skills
+mkdir skills/hello-world
+</code></pre>
+<h3 id="22-">2.2 编写技能定义文件</h3>
+<p>每个技能都需要一个 <code>skill.yaml</code> 文件，用于定义技能的元数据和参数 Schema。</p>
+<p>创建 <code>skills/hello-world/skill.yaml</code>：</p>
+<pre><code class="language-yaml">name: hello-world
+description: 一个简单的 Hello World 技能，用于测试 OpenClaw 技能开发
+author: Your Name
+version: 0.1.0
+category: 测试
+
+parameters:
+  type: object
+  properties:
+    name:
+      type: string
+      description: 要问候的人的名字
+      default: World
+  required: []
+
+returns:
+  type: string
+  description: 问候语
+</code></pre>
+<h3 id="23-">2.3 编写技能执行代码</h3>
+<p>创建 <code>skills/hello-world/index.ts</code>：</p>
+<pre><code class="language-typescript">import { SkillContext, SkillResult } from 'openclaw';
+
+export default async function execute(
+  params: { name?: string },
+  context: SkillContext
+): Promise&lt;SkillResult&gt; {
+  const name = params.name || 'World';
+  const greeting = `Hello, ${name}! 这是来自 OpenClaw 技能的问候。`;
+  
+  context.logger.info(`成功生成问候语: ${greeting}`);
+  
+  return {
+    success: true,
+    data: greeting
+  };
+}
+</code></pre>
+<h3 id="24-">2.4 注册技能</h3>
+<p>现在我们需要告诉 OpenClaw 我们有一个新技能。编辑 OpenClaw 的配置文件 <code>.claw/config.yaml</code>，添加以下内容：</p>
+<pre><code class="language-yaml">skills:
+  - path: ../skills/hello-world
+    enabled: true
+</code></pre>
+<h3 id="25--openclaw-">2.5 重启 OpenClaw 并测试</h3>
+<p>重启 OpenClaw 网关以加载新技能：</p>
+<pre><code class="language-bash"># 按 Ctrl+C 停止之前的服务
+pnpm run start
+</code></pre>
+<p>现在打开 OpenClaw Web 管理界面（通常会自动打开，地址是 <code>http://localhost:18789</code>），在聊天框中输入：</p>
+<pre><code>调用 hello-world 技能，名字是 OpenClaw
+</code></pre>
+<p>你应该会看到类似这样的回复：</p>
+<pre><code>正在调用 hello-world 技能...
+技能调用成功：
+Hello, OpenClaw! 这是来自 OpenClaw 技能的问候。
+</code></pre>
+<p>恭喜！你已经成功开发并运行了你的第一个 OpenClaw 技能。</p>
+<hr />
+<h2 id="3-">3. 开发实用技能：文档解析技能</h2>
+<p>现在我们来开发一个对知识库系统至关重要的技能——文档解析技能。这个技能将能够读取本地文件系统中的文档，并将其内容提取为纯文本格式。</p>
+<h3 id="31-">3.1 创建文档解析技能目录</h3>
+<pre><code class="language-bash">mkdir skills/document-parser
+</code></pre>
+<h3 id="32-">3.2 编写技能定义文件</h3>
+<p>创建 <code>skills/document-parser/skill.yaml</code>：</p>
+<pre><code class="language-yaml">name: document-parser
+description: 解析本地文件系统中的文档，提取纯文本内容。支持 TXT、Markdown、PDF、Word 等格式。
+author: Your Name
+version: 0.1.0
+category: 文档处理
+
+parameters:
+  type: object
+  properties:
+    filePath:
+      type: string
+      description: 要解析的文档的绝对路径
+    format:
+      type: string
+      description: 文档格式，如果不指定则根据文件扩展名自动识别
+      enum: [txt, md, pdf, docx, auto]
+      default: auto
+  required:
+    - filePath
+
+returns:
+  type: object
+  properties:
+    success:
+      type: boolean
+      description: 是否解析成功
+    content:
+      type: string
+      description: 提取的纯文本内容
+    metadata:
+      type: object
+      description: 文档元数据
+      properties:
+        fileName:
+          type: string
+          description: 文件名
+        fileSize:
+          type: number
+          description: 文件大小（字节）
+        format:
+          type: string
+          description: 文档格式
+        pageCount:
+          type: number
+          description: 页数（仅适用于 PDF 和 Word）
+</code></pre>
+<h3 id="33-">3.3 安装依赖</h3>
+<p>我们需要一些库来解析不同格式的文档：</p>
+<pre><code class="language-bash">pnpm add fs-extra pdf-parse mammoth
+pnpm add -D @types/fs-extra @types/pdf-parse
+</code></pre>
+<h3 id="34-">3.4 编写技能执行代码</h3>
+<p>创建 <code>skills/document-parser/index.ts</code>：</p>
+<pre><code class="language-typescript">import { SkillContext, SkillResult } from 'openclaw';
+import fs from 'fs-extra';
+import path from 'path';
+import pdfParse from 'pdf-parse';
+import mammoth from 'mammoth';
+
+interface DocumentParserParams {
+  filePath: string;
+  format: 'txt' | 'md' | 'pdf' | 'docx' | 'auto';
+}
+
+interface DocumentMetadata {
+  fileName: string;
+  fileSize: number;
+  format: string;
+  pageCount?: number;
+}
+
+export default async function execute(
+  params: DocumentParserParams,
+  context: SkillContext
+): Promise&lt;SkillResult&gt; {
+  const { filePath, format } = params;
+  
+  try {
+    // 检查文件是否存在
+    if (!await fs.pathExists(filePath)) {
+      throw new Error(`文件不存在: ${filePath}`);
+    }
+    
+    // 获取文件信息
+    const stats = await fs.stat(filePath);
+    if (!stats.isFile()) {
+      throw new Error(`不是一个文件: ${filePath}`);
+    }
+    
+    const fileName = path.basename(filePath);
+    const fileSize = stats.size;
+    
+    // 自动识别文件格式
+    let actualFormat = format;
+    if (actualFormat === 'auto') {
+      const ext = path.extname(filePath).toLowerCase().slice(1);
+      if (['txt', 'md', 'pdf', 'docx'].includes(ext)) {
+        actualFormat = ext as any;
+      } else {
+        throw new Error(`不支持的文件格式: ${ext}`);
+      }
+    }
+    
+    context.logger.info(`开始解析文档: ${fileName}, 格式: ${actualFormat}`);
+    
+    let content: string;
+    let pageCount: number | undefined;
+    
+    // 根据不同格式解析文档
+    switch (actualFormat) {
+      case 'txt':
+      case 'md':
+        content = await fs.readFile(filePath, 'utf-8');
+        break;
+        
+      case 'pdf':
+        const pdfBuffer = await fs.readFile(filePath);
+        const pdfResult = await pdfParse(pdfBuffer);
+        content = pdfResult.text;
+        pageCount = pdfResult.numpages;
+        break;
+        
+      case 'docx':
+        const docxBuffer = await fs.readFile(filePath);
+        const docxResult = await mammoth.extractRawText({ buffer: docxBuffer });
+        content = docxResult.value;
+        break;
+        
+      default:
+        throw new Error(`不支持的文件格式: ${actualFormat}`);
+    }
+    
+    // 清理文本内容
+    content = content.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    
+    const metadata: DocumentMetadata = {
+      fileName,
+      fileSize,
+      format: actualFormat,
+      pageCount
+    };
+    
+    context.logger.info(`文档解析成功: ${fileName}, 大小: ${fileSize} 字节, 页数: ${pageCount || 'N/A'}`);
+    
+    return {
+      success: true,
+      data: {
+        success: true,
+        content,
+        metadata
+      }
+    };
+    
+  } catch (error: any) {
+    context.logger.error(`文档解析失败: ${error.message}`);
+    
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+</code></pre>
+<h3 id="35-">3.5 注册文档解析技能</h3>
+<p>编辑 <code>.claw/config.yaml</code>，添加文档解析技能：</p>
+<pre><code class="language-yaml">skills:
+  - path: ../skills/hello-world
+    enabled: true
+  - path: ../skills/document-parser
+    enabled: true
+</code></pre>
+<h3 id="36-">3.6 测试文档解析技能</h3>
+<p>重启 OpenClaw 网关，然后在 Web 界面中测试：</p>
+<pre><code>调用 document-parser 技能，filePath 是 &quot;/path/to/your/test.md&quot;
+</code></pre>
+<p>请将 <code>/path/to/your/test.md</code> 替换为你本地一个实际存在的 Markdown 文件的绝对路径。如果一切正常，你应该能看到文件的内容被成功提取出来。</p>
+<hr />
+<h2 id="4--api--openclaw-">4. 通过 API 调用 OpenClaw 技能</h2>
+<p>为了让 FastAPI 后端能够调用 OpenClaw 技能，我们需要了解 OpenClaw 的 REST API。</p>
+<h3 id="41-">4.1 创建会话</h3>
+<p>首先，我们需要创建一个会话：</p>
+<pre><code class="language-bash">curl -X POST http://localhost:18789/api/sessions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;title&quot;: &quot;文档解析测试会话&quot;
+  }'
+</code></pre>
+<p>你会得到一个包含会话 ID 的响应：</p>
+<pre><code class="language-json">{
+  &quot;success&quot;: true,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;session-1234567890&quot;,
+    &quot;title&quot;: &quot;文档解析测试会话&quot;,
+    &quot;createdAt&quot;: &quot;2026-05-18T00:00:00.000Z&quot;
+  }
+}
+</code></pre>
+<h3 id="42-">4.2 调用技能</h3>
+<p>使用上一步得到的会话 ID，调用文档解析技能：</p>
+<pre><code class="language-bash">curl -X POST http://localhost:18789/api/sessions/{session-id}/messages \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;role&quot;: &quot;user&quot;,
+    &quot;content&quot;: &quot;调用 document-parser 技能，filePath 是 \&quot;/path/to/your/test.md\&quot;&quot;,
+    &quot;stream&quot;: false
+  }'
+</code></pre>
+<p>你会得到一个包含技能调用结果的响应。</p>
+<h3 id="43-">4.3 流式输出</h3>
+<p>如果需要流式输出，可以将 <code>stream</code> 参数设置为 <code>true</code>：</p>
+<pre><code class="language-bash">curl -X POST http://localhost:18789/api/sessions/{session-id}/messages \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;role&quot;: &quot;user&quot;,
+    &quot;content&quot;: &quot;总结一下这个文档的内容&quot;,
+    &quot;stream&quot;: true
+  }'
+</code></pre>
+<p>OpenClaw 会以 SSE（Server-Sent Events）的方式返回结果，这对于实现前端的打字机效果非常有用。</p>
+<hr />
+<h2 id="5-">5. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── main.py
+│   └── requirements.txt
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       │   ├── skill.yaml
+│       │   └── index.ts
+│       └── document-parser/
+│           ├── skill.yaml
+│           └── index.ts
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="6-">6. 接下来要做什么</h2>
+<p>在下一篇文章中，我们将：</p>
+<ol>
+<li>集成向量数据库 Chroma</li>
+<li>开发文档向量化技能，将解析后的文本转换为向量</li>
+<li>实现向量存储和检索功能</li>
+<li>完成 RAG 系统的核心检索模块</li>
+</ol>
+<p>如果你迫不及待想提前准备，可以先了解一下 Chroma 向量数据库的基本概念和使用方法。</p>
+<hr />
+<h2 id="7-">7. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>深入理解了 OpenClaw 的三层架构和核心工作原理</li>
+<li>掌握了 MCP 协议的基本概念和技能开发流程</li>
+<li>开发并测试了第一个 Hello World 技能</li>
+<li>完成了实用的多格式文档解析技能，支持 TXT、Markdown、PDF 和 Word</li>
+<li>学会了如何通过 REST API 调用 OpenClaw 技能</li>
+<li>为后续的 RAG 检索模块开发打下了坚实的基础</li>
+</ul>
+<!-- more -->
+  </div>
+
+  
+  <nav class="post-nav">
+    
+    <a href="/post/xiang-liang-shu-ju-ku-ji-cheng-yu-rag-jian-suo-he-xin-ji-neng-kai-fa/" class="post-nav-card post-nav-card--prev">
+      
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">上一篇</span>
+        <span class="post-nav-card__title">向量数据库集成与 RAG 检索核心技能开发</span>
+      </div>
+      <span class="post-nav-card__arrow">&larr;</span>
+    </a>
+    
+    
+    <a href="/post/cong-ling-gou-jian-zhi-neng-zhi-shi-kuxiang-mu-gai-lan-yu-huan-jing-da-jian/" class="post-nav-card post-nav-card--next">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">下一篇</span>
+        <span class="post-nav-card__title">从零构建智能知识库：项目概览与环境搭建</span>
+      </div>
+      
+      <span class="post-nav-card__arrow">&rarr;</span>
+    </a>
+    
+  </nav>
+
+  
+  
+
+
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+  <div class="footer-inner">
+
+    
+    
+    <nav class="footer-nav" aria-label="页脚导航">
+      
+      <a class="footer-nav__link" href="/">首页</a>
+      
+      <a class="footer-nav__link" href="/post">博客</a>
+      
+      <a class="footer-nav__link" href="/memos">闪念</a>
+      
+      <a class="footer-nav__link" href="/archives">归档</a>
+      
+      <a class="footer-nav__link" href="/tags">标签</a>
+      
+      <a class="footer-nav__link" href="/links">友链</a>
+      
+      <a class="footer-nav__link" href="/post/about">关于</a>
+      
+    </nav>
+    
+
+    
+    <div class="footer-social">
+      
+      <a class="footer-social__link" href="xx0-0xx" target="_blank" rel="noopener noreferrer"
+        aria-label="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+        </svg>
+      </a>
+      
+      
+      
+      <a class="footer-social__link" href="/feed.xml" aria-label="RSS">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.18 15.64a2.18 2.18 0 110 4.36 2.18 2.18 0 010-4.36zM4 4.44A15.56 15.56 0 0119.56 20h-2.83A12.73 12.73 0 004 7.27V4.44zm0 5.66a9.9 9.9 0 019.9 9.9h-2.83A7.07 7.07 0 004 12.93V10.1z"/>
+        </svg>
+      </a>
+    </div>
+
+    
+    <div class="footer-copyright">
+      <p>&copy; 2026 Stariverse. All rights reserved.</p>
+    </div>
+
+    
+    
+    <div class="footer-custom">
+      Stariverse
+    </div>
+    
+
+    
+    <div class="footer-powered">
+      <span>Powered by <a href="https://gridea.pro" target="_blank" rel="noopener noreferrer">Gridea Pro</a></span>
+    </div>
+
+  </div>
+</footer>
+
+  
+  <div class="search-overlay" id="searchOverlay" style="display:none;">
+  <div class="search-modal">
+    <div class="search-header">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索文章..." autocomplete="off" />
+      <span class="search-kbd">&#8984;K</span>
+      <button class="search-close" id="searchClose" type="button" aria-label="关闭搜索">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<script src="/scripts/search.js"></script>
+  
+
+  
+
+  
+
+  
+
+<script>console.log("\n%c ✦ Gridea Pro v1.1.1 %c · Theme: flavor-theme v1.0.0 · https://gridea.pro %c\n","color:#fadfa3;background:#111111;padding:9px 14px;border-radius:4px 0 0 4px;font-weight:500;font-size:12px","color:#e05c00;background:#fff3ec;padding:9px 14px;border-radius:0 4px 4px 0;font-size:11px","")</script>
+</body>
+</html>

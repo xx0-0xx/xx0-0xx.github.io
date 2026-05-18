@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<link rel="stylesheet" href="/styles/main.min.css">
+
+
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+
+
+<style>:root { --heatmap-color: #39d353; }</style>
+
+
+
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('flavor-theme');
+      var theme = saved || 'dark';
+      if (theme === 'light') {
+        document.documentElement.classList.add('theme-light');
+      }
+    } catch (e) { }
+  })();
+</script>
+  <meta name="generator" content="Gridea Pro 1.1.1">
+  <title>RAG系统深度优化与多会话管理 | Stariverse</title>
+  
+<meta property="og:title" content="RAG系统深度优化与多会话管理" />
+<meta property="og:type" content="article" />
+
+
+<meta name="description" content="在上一篇文章中，我们完成了基础的智能知识库系统，实现了文档上传、管理和基本的问答功能。但基础RAG系统在实际使用中还存在不少问题：检索结果不够精准、多轮对话上下文理解能力弱、缺乏会话管理等。这篇文章，我们将对RAG系统进行深度优化，实现检索结果重排序、多查询检索、对话历史管理和多会话支持，大幅提升系统的回答质量和用户体验。 摘要 理解基础RAG系统的局限性与核心优化方向 集&amp;hellip;">
+<meta name="keywords" content="xx0-0xx,三七不是中药,Stariverse">
+<link rel="canonical" href="https://www.xx0-0xx.space/post/ragxi-tong-shen-du-you-hua-yu-duo-hui-hua-guan-li/">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"RAG系统深度优化与多会话管理","url":"https://www.xx0-0xx.space/post/ragxi-tong-shen-du-you-hua-yu-duo-hui-hua-guan-li/","description":"在上一篇文章中，我们完成了基础的智能知识库系统，实现了文档上传、管理和基本的问答功能。但基础RAG系统在实际使用中还存在不少问题：检索结果不够精准、多轮对话上下文理解能力弱、缺乏会话管理等。这篇文章，我们将对RAG系统进行深度优化，实现检索结果重排序、多查询检索、对话历史管理和多会话支持，大幅提升系统的回答质量和用户体验。 摘要 理解基础RAG系统的局限性与核心优化方向 集\u0026hellip;","datePublished":"2026-04-04T19:20:14+08:00","dateModified":"2026-04-04T19:20:14+08:00","author":{"@type":"Person","name":"Stariverse"},"publisher":{"@type":"Organization","logo":{"@type":"ImageObject","url":"/images/avatar.png"},"name":"Stariverse"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","item":"https://www.xx0-0xx.space","name":"Stariverse","position":1},{"@type":"ListItem","item":"https://www.xx0-0xx.space/post/ragxi-tong-shen-du-you-hua-yu-duo-hui-hua-guan-li/","name":"RAG系统深度优化与多会话管理","position":2}]}</script>
+<meta property="og:title" content="RAG系统深度优化与多会话管理">
+<meta property="og:description" content="在上一篇文章中，我们完成了基础的智能知识库系统，实现了文档上传、管理和基本的问答功能。但基础RAG系统在实际使用中还存在不少问题：检索结果不够精准、多轮对话上下文理解能力弱、缺乏会话管理等。这篇文章，我们将对RAG系统进行深度优化，实现检索结果重排序、多查询检索、对话历史管理和多会话支持，大幅提升系统的回答质量和用户体验。 摘要 理解基础RAG系统的局限性与核心优化方向 集&amp;hellip;">
+<meta property="og:url" content="https://www.xx0-0xx.space/post/ragxi-tong-shen-du-you-hua-yu-duo-hui-hua-guan-li/">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Stariverse">
+<meta property="og:image" content="/images/avatar.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:url" content="https://www.xx0-0xx.space/post/ragxi-tong-shen-du-you-hua-yu-duo-hui-hua-guan-li/">
+<meta name="twitter:title" content="RAG系统深度优化与多会话管理">
+<meta name="twitter:description" content="在上一篇文章中，我们完成了基础的智能知识库系统，实现了文档上传、管理和基本的问答功能。但基础RAG系统在实际使用中还存在不少问题：检索结果不够精准、多轮对话上下文理解能力弱、缺乏会话管理等。这篇文章，我们将对RAG系统进行深度优化，实现检索结果重排序、多查询检索、对话历史管理和多会话支持，大幅提升系统的回答质量和用户体验。 摘要 理解基础RAG系统的局限性与核心优化方向 集&amp;hellip;">
+<meta name="twitter:image" content="/images/avatar.png">
+</head>
+<body class="flavor-theme">
+
+  <header class="site-header" id="siteHeader">
+  <div class="header-inner">
+    <div class="top-bar">
+
+      
+      <div class="top-bar__left">
+        
+        <a href="https://www.xx0-0xx.space" class="site-avatar-link" aria-label="返回首页">
+          <img class="site-avatar" src="https://cdn.jsdelivr.net/gh/xx0-0xx/xx0-0xx.github.io@main/images/theme/6d8d2067-54ee-41ae-9387-6abfb926698d.png" alt="Stariverse" />
+        </a>
+        
+        <a href="https://www.xx0-0xx.space" class="site-name-link">Stariverse</a>
+      </div>
+
+      
+      <nav class="top-bar__nav" id="sectionBar">
+        
+        
+        <a class="nav-item" href="/">首页</a>
+        
+        <a class="nav-item" href="/post">博客</a>
+        
+        <a class="nav-item" href="/memos">闪念</a>
+        
+        <a class="nav-item" href="/archives">归档</a>
+        
+        <a class="nav-item" href="/tags">标签</a>
+        
+        <a class="nav-item" href="/links">友链</a>
+        
+        <a class="nav-item" href="/post/about">关于</a>
+        
+        
+      </nav>
+
+      
+      <div class="top-bar__right">
+        <button class="btn-icon btn-search search-btn" id="btnSearch" type="button" aria-label="搜索">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-sun" id="themeToggleSun" type="button"
+          aria-label="切换到浅色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 1C12.5523 1 13 1.44772 13 2V4C13 4.55228 12.5523 5 12 5C11.4477 5 11 4.55228 11 4V2C11 1.44772 11.4477 1 12 1Z"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7 12C7 9.23858 9.23858 7 12 7C14.7614 7 17 9.23858 17 12C17 14.7614 14.7614 17 12 17C9.23858 17 7 14.7614 7 12ZM12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9Z"></path>
+            <path d="M13 20C13 19.4477 12.5523 19 12 19C11.4477 19 11 19.4477 11 20V22C11 22.5523 11.4477 23 12 23C12.5523 23 13 22.5523 13 22V20Z"></path>
+            <path d="M4.22282 4.22289C4.61335 3.83236 5.24651 3.83236 5.63704 4.22289L7.04704 5.63289C7.43756 6.02341 7.43756 6.65658 7.04704 7.0471C6.65651 7.43762 6.02335 7.43762 5.63283 7.0471L4.22282 5.6371C3.8323 5.24658 3.8323 4.61341 4.22282 4.22289Z"></path>
+            <path d="M18.367 16.9529C17.9765 16.5623 17.3433 16.5623 16.9528 16.9529C16.5623 17.3434 16.5623 17.9766 16.9528 18.3671L18.3628 19.7771C18.7533 20.1676 19.3865 20.1676 19.777 19.7771C20.1675 19.3866 20.1675 18.7534 19.777 18.3629L18.367 16.9529Z"></path>
+            <path d="M1 12C1 11.4477 1.44772 11 2 11H4C4.55228 11 5 11.4477 5 12C5 12.5523 4.55228 13 4 13H2C1.44772 13 1 12.5523 1 12Z"></path>
+            <path d="M20 11C19.4477 11 19 11.4477 19 12C19 12.5523 19.4477 13 20 13H22C22.5523 13 23 12.5523 23 12C23 11.4477 22.5523 11 22 11H20Z"></path>
+            <path d="M7.04704 16.9529C7.43756 17.3434 7.43756 17.9766 7.04704 18.3671L5.63704 19.7771C5.24651 20.1676 4.61335 20.1676 4.22282 19.7771C3.8323 19.3866 3.8323 18.7534 4.22283 18.3629L5.63283 16.9529C6.02335 16.5623 6.65651 16.5623 7.04704 16.9529Z"></path>
+            <path d="M19.777 5.6371C20.1675 5.24657 20.1675 4.61341 19.777 4.22289C19.3865 3.83236 18.7533 3.83236 18.3628 4.22289L16.9528 5.63289C16.5623 6.02341 16.5623 6.65658 16.9528 7.0471C17.3433 7.43762 17.9765 7.43762 18.367 7.0471L19.777 5.6371Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon theme-toggle theme-toggle-moon" id="themeToggleMoon" type="button"
+          aria-label="切换到深色模式">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C10.0222 2 8.08879 2.58649 6.4443 3.6853C4.79981 4.78412 3.51809 6.3459 2.76121 8.17317C2.00433 10.0004 1.8063 12.0111 2.19215 13.9509C2.578 15.8907 3.53041 17.6725 4.92894 19.0711C6.32746 20.4696 8.10929 21.422 10.0491 21.8079C11.9889 22.1937 13.9996 21.9957 15.8268 21.2388C17.6541 20.4819 19.2159 19.2002 20.3147 17.5557C21.4135 15.9112 22 13.9778 22 12C22 11.5955 21.7564 11.2309 21.3827 11.0761C21.009 10.9213 20.5789 11.0069 20.2929 11.2929C19.287 12.2988 17.9226 12.864 16.5 12.864C15.0774 12.864 13.713 12.2988 12.7071 11.2929C11.7012 10.287 11.136 8.92261 11.136 7.5C11.136 6.07739 11.7012 4.71304 12.7071 3.70711C12.9931 3.42111 13.0787 2.99099 12.9239 2.61732C12.7691 2.24364 12.4045 2 12 2ZM7.55544 5.34824C8.27036 4.87055 9.05353 4.51389 9.87357 4.28778C9.39271 5.27979 9.13604 6.37666 9.13604 7.5C9.13604 9.45304 9.91189 11.3261 11.2929 12.7071C12.6739 14.0881 14.547 14.864 16.5 14.864C17.6233 14.864 18.7202 14.6073 19.7122 14.1264C19.4861 14.9465 19.1295 15.7296 18.6518 16.4446C17.7727 17.7602 16.5233 18.7855 15.0615 19.391C13.5997 19.9965 11.9911 20.155 10.4393 19.8463C8.88743 19.5376 7.46197 18.7757 6.34315 17.6569C5.21447 16.538 4.4624 15.1126 4.15372 13.5607C3.84504 12.0089 4.00347 10.4003 4.60897 8.93853C5.21447 7.47672 6.23985 6.22729 7.55544 5.34824Z"></path>
+            <path d="M19 2C19.5523 2 20 2.44772 20 3V4H21C21.5523 4 22 4.44772 22 5C22 5.55228 21.5523 6 21 6H20V7C20 7.55228 19.5523 8 19 8C18.4477 8 18 7.55228 18 7V6H17C16.4477 6 16 5.55228 16 5C16 4.44772 16.4477 4 17 4H18V3C18 2.44772 18.4477 2 19 2Z"></path>
+          </svg>
+        </button>
+        <button class="btn-icon btn-nav-toggle mobile-only" id="btnNavToggle" type="button" aria-label="切换导航">
+          <div class="hamburger" id="hamburger">
+            <span class="hamburger__line hamburger__line--top"></span>
+            <span class="hamburger__line hamburger__line--bottom"></span>
+          </div>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</header>
+
+
+<div class="header-spacer"></div>
+
+<script>
+(function(){
+  var btn = document.getElementById('btnNavToggle');
+  var nav = document.getElementById('sectionBar');
+  var hamburger = document.getElementById('hamburger');
+  if (btn && nav) {
+    btn.addEventListener('click', function(){
+      nav.classList.toggle('top-bar__nav--open');
+      if (hamburger) hamburger.classList.toggle('is-active');
+    });
+    nav.querySelectorAll('.nav-item').forEach(function(item){
+      item.addEventListener('click', function(){
+        nav.classList.remove('top-bar__nav--open');
+        if (hamburger) hamburger.classList.remove('is-active');
+      });
+    });
+  }
+
+  var root = document.documentElement;
+  var applyTheme = function(theme, persist){
+    if (theme === 'light') {
+      root.classList.add('theme-light');
+    } else {
+      root.classList.remove('theme-light');
+    }
+    if (persist) {
+      try { localStorage.setItem('flavor-theme', theme); } catch (e) {}
+    }
+  };
+  document.querySelectorAll('.theme-toggle').forEach(function(el){
+    el.addEventListener('click', function(){
+      applyTheme(root.classList.contains('theme-light') ? 'dark' : 'light', true);
+    });
+  });
+})();
+</script>
+
+  <main class="site-main" role="main">
+    
+<article class="article-container">
+  <header class="article-header">
+    <h1 class="article-title">RAG系统深度优化与多会话管理</h1>
+    <div class="article-meta">
+      
+      <span class="article-meta__item">2026-04-04</span>
+      
+      <span class="article-meta__sep">·</span>
+      <span class="article-meta__item">54 分钟阅读</span>
+      
+    </div>
+    
+  </header>
+
+  
+
+  <div class="article-content">
+    <p>在上一篇文章中，我们完成了基础的智能知识库系统，实现了文档上传、管理和基本的问答功能。但基础RAG系统在实际使用中还存在不少问题：检索结果不够精准、多轮对话上下文理解能力弱、缺乏会话管理等。这篇文章，我们将对RAG系统进行深度优化，实现检索结果重排序、多查询检索、对话历史管理和多会话支持，大幅提升系统的回答质量和用户体验。</p>
+<h2 id="heading">摘要</h2>
+<ul>
+<li>理解基础RAG系统的局限性与核心优化方向</li>
+<li>集成Cohere Rerank实现检索结果重排序，显著提升回答准确性</li>
+<li>实现多查询检索与父文档检索，解决上下文缺失问题</li>
+<li>完善对话历史管理，优化多轮对话上下文理解</li>
+<li>开发多会话支持功能，实现会话创建、切换与删除</li>
+<li>优化用户体验细节，包括引用来源跳转与问题建议</li>
+</ul>
+<hr />
+<h2 id="1-rag">1. 基础RAG系统的局限性与优化方向</h2>
+<p>虽然我们的基础RAG系统已经能够工作，但在实际测试中你可能会发现以下问题：</p>
+<h3 id="11-rag">1.1 基础RAG的常见问题</h3>
+<ul>
+<li><strong>检索精度不足</strong>：经常返回一些语义相关但实际不相关的文档片段</li>
+<li><strong>上下文缺失</strong>：小块检索导致上下文不完整，大模型无法理解完整含义</li>
+<li><strong>多轮对话能力弱</strong>：无法有效利用之前的对话历史，需要用户重复说明</li>
+<li><strong>回答质量不稳定</strong>：同样的问题可能得到质量差异很大的回答</li>
+<li><strong>缺乏会话管理</strong>：只有一个全局会话，无法同时处理多个主题</li>
+</ul>
+<h3 id="12-">1.2 我们的优化方案</h3>
+<p>针对这些问题，我们将实施以下优化措施：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>解决方案</th>
+<th>预期效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检索精度不足</td>
+<td>检索结果重排序（Cohere Rerank）</td>
+<td>回答准确率提升30-50%</td>
+</tr>
+<tr>
+<td>上下文缺失</td>
+<td>父文档检索 + 更大的上下文窗口</td>
+<td>回答更完整、更准确</td>
+</tr>
+<tr>
+<td>召回率低</td>
+<td>多查询检索（Multi-Query Retrieval）</td>
+<td>找到更多相关的文档片段</td>
+</tr>
+<tr>
+<td>多轮对话能力弱</td>
+<td>对话历史压缩 + 上下文感知检索</td>
+<td>更好地理解多轮对话上下文</td>
+</tr>
+<tr>
+<td>缺乏会话管理</td>
+<td>前端多会话支持 + 后端会话持久化</td>
+<td>支持同时处理多个主题的对话</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-rag">2. RAG检索效果核心优化</h2>
+<h3 id="21-reranking">2.1 检索结果重排序（Reranking）</h3>
+<p>检索结果重排序是提升RAG系统效果最有效的方法之一。基础的向量相似度搜索只能找到语义上相似的文档，但无法判断这些文档与问题的实际相关性。重排序模型会对初步检索到的结果进行重新打分，只保留最相关的前几个片段。</p>
+<p>我们选择Cohere Rerank作为重排序模型，它是目前效果最好的商用重排序模型之一，使用简单且价格便宜。</p>
+<h4 id="211-">2.1.1 安装依赖与配置</h4>
+<p>进入<code>backend</code>目录，安装Cohere SDK：</p>
+<pre><code class="language-bash">cd backend
+source venv/bin/activate  # Windows 使用 venv\Scripts\activate
+pip install cohere
+</code></pre>
+<p>在<code>.env</code>文件中添加Cohere API Key：</p>
+<pre><code class="language-env">OPENAI_API_KEY=your-openai-api-key-here
+CHROMA_PERSIST_DIRECTORY=./chroma_db
+COHERE_API_KEY=your-cohere-api-key-here  # 新增
+</code></pre>
+<h4 id="212-">2.1.2 实现重排序功能</h4>
+<p>修改<code>services/vector_service.py</code>，添加重排序功能：</p>
+<pre><code class="language-python">import os
+import chromadb
+import cohere
+from chromadb.utils import embedding_functions
+from dotenv import load_dotenv
+from utils.text_splitter import split_text
+
+load_dotenv()
+
+class VectorService:
+    def __init__(self):
+        self.persist_directory = os.getenv(&quot;CHROMA_PERSIST_DIRECTORY&quot;, &quot;./chroma_db&quot;)
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
+        
+        # 使用 OpenAI 嵌入模型
+        self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=os.getenv(&quot;OPENAI_API_KEY&quot;),
+            model_name=&quot;text-embedding-3-small&quot;
+        )
+        
+        # 初始化 Cohere 重排序客户端
+        self.cohere_client = cohere.Client(os.getenv(&quot;COHERE_API_KEY&quot;))
+        
+        # 获取或创建集合
+        self.collection = self.client.get_or_create_collection(
+            name=&quot;knowledge_base&quot;,
+            embedding_function=self.embedding_function,
+            metadata={&quot;description&quot;: &quot;企业级智能知识库向量集合&quot;}
+        )
+    
+    # ... 保留之前的 add_document 和 delete_document 方法 ...
+    
+    def search(self, query: str, top_k: int = 10, rerank_top_k: int = 3) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        搜索与查询最相关的文档片段，并进行重排序
+        &quot;&quot;&quot;
+        # 第一步：初步检索，获取较多的结果
+        results = self.collection.query(
+            query_texts=[query],
+            n_results=top_k
+        )
+        
+        if not results[&quot;ids&quot;][0]:
+            return []
+        
+        # 提取文档内容
+        documents = results[&quot;documents&quot;][0]
+        metadatas = results[&quot;metadatas&quot;][0]
+        ids = results[&quot;ids&quot;][0]
+        distances = results[&quot;distances&quot;][0] if results[&quot;distances&quot;] else [None] * len(documents)
+        
+        # 第二步：使用 Cohere Rerank 进行重排序
+        rerank_response = self.cohere_client.rerank(
+            model=&quot;rerank-english-v3.0&quot;,  # 中文使用 rerank-multilingual-v3.0
+            query=query,
+            documents=documents,
+            top_n=rerank_top_k
+        )
+        
+        # 格式化重排序后的结果
+        formatted_results = []
+        for rerank_result in rerank_response.results:
+            index = rerank_result.index
+            formatted_results.append({
+                &quot;id&quot;: ids[index],
+                &quot;document&quot;: documents[index],
+                &quot;metadata&quot;: metadatas[index],
+                &quot;original_distance&quot;: distances[index],
+                &quot;rerank_score&quot;: rerank_result.relevance_score
+            })
+        
+        # 按重排序分数降序排列
+        formatted_results.sort(key=lambda x: x[&quot;rerank_score&quot;], reverse=True)
+        
+        return formatted_results
+</code></pre>
+<h3 id="22-multi-query-retrieval">2.2 多查询检索（Multi-Query Retrieval）</h3>
+<p>用户的提问方式往往比较随意，单一查询可能无法覆盖所有相关的文档。多查询检索技术会让大模型根据用户的原始问题，生成多个不同角度的查询，然后分别进行检索，最后合并结果。</p>
+<p>修改<code>services/vector_service.py</code>，添加多查询检索功能：</p>
+<pre><code class="language-python">from openai import OpenAI
+
+class VectorService:
+    def __init__(self):
+        # ... 保留之前的初始化代码 ...
+        self.openai_client = OpenAI(api_key=os.getenv(&quot;OPENAI_API_KEY&quot;))
+    
+    # ... 保留之前的方法 ...
+    
+    def generate_queries(self, original_query: str, num_queries: int = 3) -&gt; list[str]:
+        &quot;&quot;&quot;
+        根据原始问题生成多个不同角度的查询
+        &quot;&quot;&quot;
+        prompt = f&quot;&quot;&quot;
+        你是一个AI助手，你的任务是根据用户的原始问题，生成{num_queries}个不同角度的查询，用于从知识库中检索相关信息。
+        
+        原始问题：{original_query}
+        
+        请生成{num_queries}个不同的查询，每个查询应该从不同的角度表达相同的信息需求。查询应该简洁明了，直接针对核心问题。
+        请只返回查询内容，每行一个，不要添加任何其他解释或编号。
+        &quot;&quot;&quot;
+        
+        response = self.openai_client.chat.completions.create(
+            model=&quot;gpt-3.5-turbo&quot;,
+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
+            temperature=0.7
+        )
+        
+        queries = response.choices[0].message.content.strip().split('\n')
+        queries = [q.strip() for q in queries if q.strip()]
+        
+        # 确保包含原始查询
+        if original_query not in queries:
+            queries.insert(0, original_query)
+        
+        return queries[:num_queries]
+    
+    def multi_query_search(self, query: str, top_k_per_query: int = 5, rerank_top_k: int = 3) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        多查询检索：生成多个查询，分别检索后合并结果并重排序
+        &quot;&quot;&quot;
+        # 生成多个查询
+        queries = self.generate_queries(query)
+        
+        # 对每个查询进行检索
+        all_results = []
+        seen_ids = set()
+        
+        for q in queries:
+            results = self.collection.query(
+                query_texts=[q],
+                n_results=top_k_per_query
+            )
+            
+            for i in range(len(results[&quot;ids&quot;][0])):
+                doc_id = results[&quot;ids&quot;][0][i]
+                if doc_id not in seen_ids:
+                    seen_ids.add(doc_id)
+                    all_results.append({
+                        &quot;id&quot;: doc_id,
+                        &quot;document&quot;: results[&quot;documents&quot;][0][i],
+                        &quot;metadata&quot;: results[&quot;metadatas&quot;][0][i],
+                        &quot;original_distance&quot;: results[&quot;distances&quot;][0][i] if results[&quot;distances&quot;] else None
+                    })
+        
+        if not all_results:
+            return []
+        
+        # 对合并后的结果进行重排序
+        documents = [r[&quot;document&quot;] for r in all_results]
+        rerank_response = self.cohere_client.rerank(
+            model=&quot;rerank-multilingual-v3.0&quot;,
+            query=query,
+            documents=documents,
+            top_n=rerank_top_k
+        )
+        
+        # 格式化结果
+        formatted_results = []
+        for rerank_result in rerank_response.results:
+            index = rerank_result.index
+            result = all_results[index]
+            result[&quot;rerank_score&quot;] = rerank_result.relevance_score
+            formatted_results.append(result)
+        
+        # 按重排序分数降序排列
+        formatted_results.sort(key=lambda x: x[&quot;rerank_score&quot;], reverse=True)
+        
+        return formatted_results
+</code></pre>
+<h3 id="23-parent-document-retrieval">2.3 父文档检索（Parent Document Retrieval）</h3>
+<p>基础的小块检索虽然能提高检索精度，但会导致上下文缺失。父文档检索技术将文档拆分为较小的子块用于检索，但在生成回答时返回包含该子块的较大父块，从而提供更完整的上下文。</p>
+<p>修改<code>utils/text_splitter.py</code>，实现父子分块：</p>
+<pre><code class="language-python">from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+def split_text_with_parent(
+    text: str, 
+    parent_chunk_size: int = 2000, 
+    parent_chunk_overlap: int = 200,
+    child_chunk_size: int = 512, 
+    child_chunk_overlap: int = 50
+) -&gt; list[dict]:
+    &quot;&quot;&quot;
+    将文本拆分为父子块结构
+    &quot;&quot;&quot;
+    # 首先拆分为较大的父块
+    parent_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=parent_chunk_size,
+        chunk_overlap=parent_chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+    )
+    
+    parent_chunks = parent_splitter.split_text(text)
+    
+    # 然后将每个父块拆分为较小的子块
+    child_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=child_chunk_size,
+        chunk_overlap=child_chunk_overlap,
+        length_function=len,
+        is_separator_regex=False,
+    )
+    
+    all_chunks = []
+    
+    for parent_index, parent_chunk in enumerate(parent_chunks):
+        child_chunks = child_splitter.split_text(parent_chunk)
+        
+        for child_index, child_chunk in enumerate(child_chunks):
+            all_chunks.append({
+                &quot;parent_index&quot;: parent_index,
+                &quot;child_index&quot;: child_index,
+                &quot;parent_content&quot;: parent_chunk,
+                &quot;child_content&quot;: child_chunk
+            })
+    
+    return all_chunks
+</code></pre>
+<p>修改<code>services/vector_service.py</code>的<code>add_document</code>方法，支持父子分块：</p>
+<pre><code class="language-python">def add_document(self, document_id: str, content: str, metadata: dict = None) -&gt; dict:
+    &quot;&quot;&quot;
+    添加文档到向量数据库（使用父子分块）
+    &quot;&quot;&quot;
+    # 使用父子分块策略
+    chunks = split_text_with_parent(content)
+    
+    # 生成块 ID
+    chunk_ids = [f&quot;{document_id}_chunk_{c['parent_index']}_{c['child_index']}&quot; for c in chunks]
+    
+    # 准备元数据
+    chunk_metadatas = []
+    for i, chunk in enumerate(chunks):
+        chunk_metadata = {
+            &quot;document_id&quot;: document_id,
+            &quot;parent_index&quot;: chunk[&quot;parent_index&quot;],
+            &quot;child_index&quot;: chunk[&quot;child_index&quot;],
+            &quot;parent_content&quot;: chunk[&quot;parent_content&quot;],
+            &quot;content_preview&quot;: chunk[&quot;child_content&quot;][:100] + &quot;...&quot; if len(chunk[&quot;child_content&quot;]) &gt; 100 else chunk[&quot;child_content&quot;]
+        }
+        if metadata:
+            chunk_metadata.update(metadata)
+        chunk_metadatas.append(chunk_metadata)
+    
+    # 添加到向量数据库（存储子块内容用于检索）
+    self.collection.add(
+        ids=chunk_ids,
+        documents=[c[&quot;child_content&quot;] for c in chunks],
+        metadatas=chunk_metadatas
+    )
+    
+    return {
+        &quot;document_id&quot;: document_id,
+        &quot;chunk_count&quot;: len(chunks),
+        &quot;success&quot;: True
+    }
+</code></pre>
+<p>修改<code>search</code>方法，返回父块内容用于生成回答：</p>
+<pre><code class="language-python">def search(self, query: str, top_k: int = 10, rerank_top_k: int = 3) -&gt; list[dict]:
+    &quot;&quot;&quot;
+    搜索与查询最相关的文档片段，并进行重排序（返回父块内容）
+    &quot;&quot;&quot;
+    # 第一步：初步检索，获取较多的结果
+    results = self.collection.query(
+        query_texts=[query],
+        n_results=top_k
+    )
+    
+    if not results[&quot;ids&quot;][0]:
+        return []
+    
+    # 提取文档内容和元数据
+    metadatas = results[&quot;metadatas&quot;][0]
+    ids = results[&quot;ids&quot;][0]
+    distances = results[&quot;distances&quot;][0] if results[&quot;distances&quot;] else [None] * len(metadatas)
+    
+    # 提取父块内容用于重排序
+    documents = [m[&quot;parent_content&quot;] for m in metadatas]
+    
+    # 第二步：使用 Cohere Rerank 进行重排序
+    rerank_response = self.cohere_client.rerank(
+        model=&quot;rerank-multilingual-v3.0&quot;,
+        query=query,
+        documents=documents,
+        top_n=rerank_top_k
+    )
+    
+    # 格式化重排序后的结果
+    formatted_results = []
+    seen_parent_indices = set()
+    
+    for rerank_result in rerank_response.results:
+        index = rerank_result.index
+        metadata = metadatas[index]
+        
+        # 避免重复返回同一个父块
+        parent_key = f&quot;{metadata['document_id']}_{metadata['parent_index']}&quot;
+        if parent_key in seen_parent_indices:
+            continue
+        seen_parent_indices.add(parent_key)
+        
+        formatted_results.append({
+            &quot;id&quot;: ids[index],
+            &quot;document&quot;: metadata[&quot;parent_content&quot;],  # 返回父块内容
+            &quot;child_document&quot;: metadata[&quot;content_preview&quot;],
+            &quot;metadata&quot;: metadata,
+            &quot;original_distance&quot;: distances[index],
+            &quot;rerank_score&quot;: rerank_result.relevance_score
+        })
+    
+    # 按重排序分数降序排列
+    formatted_results.sort(key=lambda x: x[&quot;rerank_score&quot;], reverse=True)
+    
+    return formatted_results[:rerank_top_k]
+</code></pre>
+<h3 id="24-api">2.4 更新API接口</h3>
+<p>修改<code>main.py</code>，更新搜索接口以使用优化后的搜索方法：</p>
+<pre><code class="language-python">@app.post(&quot;/api/vector/search&quot;)
+async def search_documents(request: SearchRequest):
+    try:
+        results = vector_service.multi_query_search(
+            query=request.query,
+            top_k_per_query=5,
+            rerank_top_k=request.top_k
+        )
+        return {&quot;results&quot;: results, &quot;count&quot;: len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+</code></pre>
+<hr />
+<h2 id="3-">3. 对话历史管理与多轮对话优化</h2>
+<h3 id="31-">3.1 对话历史压缩</h3>
+<p>随着对话的进行，历史消息会越来越长，不仅会消耗更多的token，还可能导致大模型分心。我们可以使用大模型对对话历史进行压缩，只保留关键信息。</p>
+<p>在<code>backend</code>目录下创建<code>services/chat_service.py</code>：</p>
+<pre><code class="language-python">from openai import OpenAI
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class ChatService:
+    def __init__(self):
+        self.openai_client = OpenAI(api_key=os.getenv(&quot;OPENAI_API_KEY&quot;))
+    
+    def compress_history(self, messages: list[dict], max_tokens: int = 1000) -&gt; list[dict]:
+        &quot;&quot;&quot;
+        压缩对话历史，只保留关键信息
+        &quot;&quot;&quot;
+        if len(messages) &lt;= 4:  # 保留最近的2轮对话
+            return messages
+        
+        # 保留系统提示和最近的2轮对话
+        recent_messages = messages[-4:]
+        
+        # 压缩更早的历史
+        older_messages = messages[:-4]
+        
+        if not older_messages:
+            return recent_messages
+        
+        prompt = f&quot;&quot;&quot;
+        请将以下对话历史压缩成一段简洁的摘要，保留所有关键信息：
+        
+        {older_messages}
+        
+        摘要应该简洁明了，不超过{max_tokens}个token。
+        &quot;&quot;&quot;
+        
+        response = self.openai_client.chat.completions.create(
+            model=&quot;gpt-3.5-turbo&quot;,
+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
+            temperature=0.3
+        )
+        
+        compressed_summary = response.choices[0].message.content
+        
+        # 构建压缩后的历史
+        compressed_history = [
+            {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: f&quot;之前的对话摘要：{compressed_summary}&quot;}
+        ] + recent_messages
+        
+        return compressed_history
+    
+    def generate_context_aware_query(self, query: str, history: list[dict]) -&gt; str:
+        &quot;&quot;&quot;
+        根据对话历史生成上下文感知的查询
+        &quot;&quot;&quot;
+        if len(history) &lt; 2:  # 没有足够的历史
+            return query
+        
+        prompt = f&quot;&quot;&quot;
+        给定以下对话历史和用户的最新问题，请生成一个上下文感知的查询，用于从知识库中检索相关信息。
+        
+        对话历史：
+        {history[-6:]}  # 保留最近的3轮对话
+        
+        用户最新问题：{query}
+        
+        请生成一个完整的查询，包含所有必要的上下文信息。查询应该简洁明了，直接针对核心问题。
+        请只返回查询内容，不要添加任何其他解释。
+        &quot;&quot;&quot;
+        
+        response = self.openai_client.chat.completions.create(
+            model=&quot;gpt-3.5-turbo&quot;,
+            messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}],
+            temperature=0.3
+        )
+        
+        context_aware_query = response.choices[0].message.content.strip()
+        
+        return context_aware_query
+
+# 创建全局实例
+chat_service = ChatService()
+</code></pre>
+<h3 id="32-openclaw">3.2 更新OpenClaw系统提示词</h3>
+<p>修改<code>openclaw/.claw/config.yaml</code>的系统提示词，优化多轮对话处理：</p>
+<pre><code class="language-yaml">system_prompt: |
+  你是一个专业的企业知识库助手。你的任务是基于企业内部知识库的内容，准确、清晰地回答用户的问题。
+  
+  重要规则：
+  1. 当用户询问任何与企业内部知识、产品信息、规章制度、流程规范相关的问题时，**必须先调用 rag-retrieval 技能**获取相关信息。
+  2. 你的回答必须严格基于检索到的文档内容，不得编造信息。
+  3. 如果检索结果中没有相关信息，请明确告诉用户&quot;知识库中没有找到相关信息&quot;，不要猜测。
+  4. 回答时要引用来源，格式为：[来源: 文件名]
+  5. 保持回答简洁明了，重点突出。
+  6. 在多轮对话中，要结合之前的对话上下文理解用户的问题。如果用户的问题指代不明确，可以适当追问。
+</code></pre>
+<hr />
+<h2 id="4-">4. 多会话支持实现</h2>
+<h3 id="41-">4.1 前端多会话管理</h3>
+<p>首先，我们需要在前端状态管理中添加会话相关的状态。修改<code>src/store/index.ts</code>：</p>
+<pre><code class="language-typescript">import { create } from 'zustand';
+
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: any[];
+  timestamp: Date;
+}
+
+interface Session {
+  id: string;
+  title: string;
+  createdAt: Date;
+}
+
+interface AppState {
+  // 会话状态
+  sessions: Session[];
+  currentSessionId: string | null;
+  messages: Message[];
+  isLoading: boolean;
+  
+  // 文档状态
+  documents: any[];
+  isUploading: boolean;
+  uploadProgress: number;
+  
+  // 方法
+  setSessions: (sessions: Session[]) =&gt; void;
+  addSession: (session: Session) =&gt; void;
+  deleteSession: (sessionId: string) =&gt; void;
+  setCurrentSessionId: (id: string | null) =&gt; void;
+  addMessage: (message: Message) =&gt; void;
+  setMessages: (messages: Message[]) =&gt; void;
+  setIsLoading: (loading: boolean) =&gt; void;
+  setDocuments: (documents: any[]) =&gt; void;
+  setIsUploading: (uploading: boolean) =&gt; void;
+  setUploadProgress: (progress: number) =&gt; void;
+  clearMessages: () =&gt; void;
+}
+
+export const useAppStore = create&lt;AppState&gt;((set) =&gt; ({
+  sessions: [],
+  currentSessionId: null,
+  messages: [],
+  isLoading: false,
+  documents: [],
+  isUploading: false,
+  uploadProgress: 0,
+  
+  setSessions: (sessions) =&gt; set({ sessions }),
+  addSession: (session) =&gt; set((state) =&gt; ({ 
+    sessions: [...state.sessions, session] 
+  })),
+  deleteSession: (sessionId) =&gt; set((state) =&gt; ({ 
+    sessions: state.sessions.filter(s =&gt; s.id !== sessionId),
+    currentSessionId: state.currentSessionId === sessionId ? null : state.currentSessionId,
+    messages: state.currentSessionId === sessionId ? [] : state.messages
+  })),
+  setCurrentSessionId: (id) =&gt; set({ currentSessionId: id }),
+  addMessage: (message) =&gt; set((state) =&gt; ({ 
+    messages: [...state.messages, message] 
+  })),
+  setMessages: (messages) =&gt; set({ messages }),
+  setIsLoading: (loading) =&gt; set({ isLoading: loading }),
+  setDocuments: (documents) =&gt; set({ documents }),
+  setIsUploading: (uploading) =&gt; set({ isUploading: uploading }),
+  setUploadProgress: (progress) =&gt; set({ uploadProgress: progress }),
+  clearMessages: () =&gt; set({ messages: [] }),
+}));
+</code></pre>
+<h3 id="42-">4.2 会话列表组件</h3>
+<p>创建<code>src/components/SessionList.tsx</code>：</p>
+<pre><code class="language-tsx">import { useState } from 'react';
+import { List, Button, Popconfirm, message } from 'antd';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { openclawApiService } from '../api';
+import { useAppStore } from '../store';
+
+const SessionList = () =&gt; {
+  const { sessions, setSessions, addSession, deleteSession, currentSessionId, setCurrentSessionId, setMessages } = useAppStore();
+  const [isCreating, setIsCreating] = useState(false);
+  
+  // 创建新会话
+  const handleCreateSession = async () =&gt; {
+    setIsCreating(true);
+    try {
+      const response = await openclawApiService.createSession('新会话');
+      const newSession = {
+        id: response.data.data.id,
+        title: response.data.data.title,
+        createdAt: new Date(response.data.data.createdAt)
+      };
+      
+      addSession(newSession);
+      setCurrentSessionId(newSession.id);
+      setMessages([]);
+      message.success('新会话创建成功');
+    } catch (error: any) {
+      message.error(`创建会话失败: ${error.message}`);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+  
+  // 切换会话
+  const handleSwitchSession = async (sessionId: string) =&gt; {
+    setCurrentSessionId(sessionId);
+    setMessages([]);
+    
+    try {
+      const response = await openclawApiService.getSessionHistory(sessionId);
+      const messages = response.data.data.messages.map((msg: any) =&gt; ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(msg.createdAt)
+      }));
+      setMessages(messages);
+    } catch (error: any) {
+      message.error(`加载会话历史失败: ${error.message}`);
+    }
+  };
+  
+  // 删除会话
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) =&gt; {
+    e.stopPropagation();
+    
+    try {
+      // 这里可以调用后端API删除会话
+      deleteSession(sessionId);
+      message.success('会话删除成功');
+    } catch (error: any) {
+      message.error(`删除会话失败: ${error.message}`);
+    }
+  };
+  
+  return (
+    &lt;div style={{ padding: '16px 0' }}&gt;
+      &lt;Button 
+        type=&quot;primary&quot; 
+        icon={&lt;PlusOutlined /&gt;} 
+        onClick={handleCreateSession}
+        loading={isCreating}
+        style={{ marginBottom: 16, width: '100%' }}
+      &gt;
+        新建会话
+      &lt;/Button&gt;
+      
+      &lt;List
+        dataSource={sessions}
+        renderItem={(session) =&gt; (
+          &lt;List.Item
+            onClick={() =&gt; handleSwitchSession(session.id)}
+            style={{ 
+              cursor: 'pointer',
+              padding: '8px 12px',
+              borderRadius: 4,
+              backgroundColor: session.id === currentSessionId ? '#e6f7ff' : 'transparent',
+              borderLeft: session.id === currentSessionId ? '3px solid #1890ff' : '3px solid transparent'
+            }}
+            actions={[
+              &lt;Popconfirm
+                key=&quot;delete&quot;
+                title=&quot;确定要删除这个会话吗？&quot;
+                onConfirm={(e) =&gt; handleDeleteSession(session.id, e!)}
+                okText=&quot;确定&quot;
+                cancelText=&quot;取消&quot;
+              &gt;
+                &lt;Button type=&quot;text&quot; danger size=&quot;small&quot; icon={&lt;DeleteOutlined /&gt;} /&gt;
+              &lt;/Popconfirm&gt;
+            ]}
+          &gt;
+            &lt;List.Item.Meta
+              title={session.title}
+              description={session.createdAt.toLocaleString()}
+            /&gt;
+          &lt;/List.Item&gt;
+        )}
+      /&gt;
+    &lt;/div&gt;
+  );
+};
+
+export default SessionList;
+</code></pre>
+<h3 id="43-">4.3 更新聊天页面</h3>
+<p>修改<code>src/pages/ChatPage.tsx</code>，集成会话列表：</p>
+<pre><code class="language-tsx">import { useState, useEffect, useRef } from 'react';
+import { Layout, Card, Input, Button, List, Avatar, Spin, Typography, Tag, Empty } from 'antd';
+import { SendOutlined, UserOutlined, RobotOutlined } from '@ant-design/icons';
+import { openclawApiService } from '../api';
+import { useAppStore } from '../store';
+import SessionList from '../components/SessionList';
+import './ChatPage.css';
+
+const { Sider, Content } = Layout;
+const { Text, Paragraph } = Typography;
+
+const ChatPage = () =&gt; {
+  const { 
+    currentSessionId, 
+    messages, 
+    addMessage, 
+    setMessages, 
+    isLoading, 
+    setIsLoading 
+  } = useAppStore();
+  
+  const [inputValue, setInputValue] = useState('');
+  const messagesEndRef = useRef&lt;HTMLDivElement&gt;(null);
+  
+  // 自动滚动到底部
+  useEffect(() =&gt; {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+  
+  // 处理发送消息
+  const handleSend = async () =&gt; {
+    if (!inputValue.trim() || !currentSessionId || isLoading) return;
+    
+    const userMessage = {
+      id: Date.now().toString(),
+      role: 'user' as const,
+      content: inputValue.trim(),
+      timestamp: new Date(),
+    };
+    
+    addMessage(userMessage);
+    setInputValue('');
+    setIsLoading(true);
+    
+    try {
+      // 发送消息并获取流式响应
+      const response = await fetch(`http://localhost:18789/api/sessions/${currentSessionId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          role: 'user',
+          content: userMessage.content,
+          stream: true,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('请求失败');
+      }
+      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      
+      // 创建一个空的助手消息
+      const assistantMessageId = (Date.now() + 1).toString();
+      addMessage({
+        id: assistantMessageId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+      });
+      
+      // 读取流式响应
+      while (reader) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line =&gt; line.trim() !== '');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') continue;
+            
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                assistantContent += parsed.content;
+                
+                // 更新助手消息
+                setMessages(prev =&gt; prev.map(msg =&gt; 
+                  msg.id === assistantMessageId 
+                    ? { ...msg, content: assistantContent }
+                    : msg
+                ));
+              }
+            } catch (e) {
+              console.error('解析响应失败:', e);
+            }
+          }
+        }
+      }
+      
+    } catch (error: any) {
+      console.error('发送消息失败:', error);
+      addMessage({
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `抱歉，发生了一个错误: ${error.message}`,
+        timestamp: new Date(),
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // 处理回车键发送
+  const handleKeyPress = (e: React.KeyboardEvent) =&gt; {
+    if (e.key === 'Enter' &amp;&amp; !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+  
+  return (
+    &lt;Layout style={{ height: 'calc(100vh - 120px)' }}&gt;
+      &lt;Sider width={250} style={{ background: '#fff', borderRight: '1px solid #f0f0f0' }}&gt;
+        &lt;div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0' }}&gt;
+          &lt;h3 style={{ margin: 0 }}&gt;会话列表&lt;/h3&gt;
+        &lt;/div&gt;
+        &lt;SessionList /&gt;
+      &lt;/Sider&gt;
+      
+      &lt;Content&gt;
+        &lt;Card 
+          title=&quot;智能问答&quot; 
+          style={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 0 }}
+        &gt;
+          &lt;div className=&quot;chat-messages&quot; style={{ flex: 1, overflowY: 'auto', marginBottom: 16 }}&gt;
+            {!currentSessionId ? (
+              &lt;Empty 
+                description=&quot;请创建或选择一个会话开始对话&quot; 
+                style={{ marginTop: 100 }}
+              /&gt;
+            ) : messages.length === 0 ? (
+              &lt;Empty 
+                description=&quot;开始与知识库对话吧！&quot; 
+                style={{ marginTop: 100 }}
+              /&gt;
+            ) : (
+              &lt;List
+                dataSource={messages}
+                renderItem={(message) =&gt; (
+                  &lt;div 
+                    className={`message-item ${message.role}`}
+                    style={{ 
+                      display: 'flex', 
+                      marginBottom: 16,
+                      justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start'
+                    }}
+                  &gt;
+                    {message.role === 'assistant' &amp;&amp; (
+                      &lt;Avatar icon={&lt;RobotOutlined /&gt;} style={{ marginRight: 12, backgroundColor: '#1890ff' }} /&gt;
+                    )}
+                    
+                    &lt;div 
+                      className=&quot;message-content&quot;
+                      style={{ 
+                        maxWidth: '70%',
+                        padding: '12px 16px',
+                        borderRadius: 8,
+                        backgroundColor: message.role === 'user' ? '#1890ff' : '#f0f0f0',
+                        color: message.role === 'user' ? '#fff' : '#000'
+                      }}
+                    &gt;
+                      &lt;Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}&gt;
+                        {message.content}
+                      &lt;/Paragraph&gt;
+                      
+                      {message.sources &amp;&amp; message.sources.length &gt; 0 &amp;&amp; (
+                        &lt;div style={{ marginTop: 8 }}&gt;
+                          &lt;Text type=&quot;secondary&quot; style={{ fontSize: 12 }}&gt;引用来源:&lt;/Text&gt;
+                          {message.sources.map((source: any, index: number) =&gt; (
+                            &lt;Tag key={index} size=&quot;small&quot; style={{ marginLeft: 4 }}&gt;
+                              {source.metadata?.fileName || '未知'}
+                            &lt;/Tag&gt;
+                          ))}
+                        &lt;/div&gt;
+                      )}
+                    &lt;/div&gt;
+                    
+                    {message.role === 'user' &amp;&amp; (
+                      &lt;Avatar icon={&lt;UserOutlined /&gt;} style={{ marginLeft: 12, backgroundColor: '#52c41a' }} /&gt;
+                    )}
+                  &lt;/div&gt;
+                )}
+              /&gt;
+            )}
+            
+            {isLoading &amp;&amp; messages.length &gt; 0 &amp;&amp; messages[messages.length - 1].role === 'user' &amp;&amp; (
+              &lt;div style={{ display: 'flex', marginBottom: 16 }}&gt;
+                &lt;Avatar icon={&lt;RobotOutlined /&gt;} style={{ marginRight: 12, backgroundColor: '#1890ff' }} /&gt;
+                &lt;div style={{ padding: '12px 16px', borderRadius: 8, backgroundColor: '#f0f0f0' }}&gt;
+                  &lt;Spin size=&quot;small&quot; /&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            )}
+            
+            &lt;div ref={messagesEndRef} /&gt;
+          &lt;/div&gt;
+          
+          &lt;div className=&quot;chat-input&quot; style={{ display: 'flex', gap: 8 }}&gt;
+            &lt;Input.TextArea
+              value={inputValue}
+              onChange={(e) =&gt; setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder=&quot;输入你的问题...&quot;
+              autoSize={{ minRows: 1, maxRows: 4 }}
+              disabled={isLoading || !currentSessionId}
+            /&gt;
+            &lt;Button 
+              type=&quot;primary&quot; 
+              icon={&lt;SendOutlined /&gt;} 
+              onClick={handleSend}
+              loading={isLoading}
+              disabled={!inputValue.trim() || !currentSessionId}
+            &gt;
+              发送
+            &lt;/Button&gt;
+          &lt;/div&gt;
+        &lt;/Card&gt;
+      &lt;/Content&gt;
+    &lt;/Layout&gt;
+  );
+};
+
+export default ChatPage;
+</code></pre>
+<hr />
+<h2 id="5-">5. 用户体验细节优化</h2>
+<h3 id="51-">5.1 引用来源可点击跳转</h3>
+<p>修改<code>src/pages/ChatPage.tsx</code>，让引用来源可以点击跳转到对应的文档：</p>
+<pre><code class="language-tsx">{message.sources &amp;&amp; message.sources.length &gt; 0 &amp;&amp; (
+  &lt;div style={{ marginTop: 8 }}&gt;
+    &lt;Text type=&quot;secondary&quot; style={{ fontSize: 12 }}&gt;引用来源:&lt;/Text&gt;
+    {message.sources.map((source: any, index: number) =&gt; (
+      &lt;Tag 
+        key={index} 
+        size=&quot;small&quot; 
+        style={{ marginLeft: 4, cursor: 'pointer' }}
+        onClick={() =&gt; {
+          // 跳转到文档管理页面并高亮该文档
+          window.location.href = `/?documentId=${source.metadata?.document_id}`;
+        }}
+      &gt;
+        {source.metadata?.fileName || '未知'}
+      &lt;/Tag&gt;
+    ))}
+  &lt;/div&gt;
+)}
+</code></pre>
+<h3 id="52-">5.2 问题建议</h3>
+<p>在聊天页面添加常见问题建议，帮助用户快速开始：</p>
+<pre><code class="language-tsx">{!currentSessionId ? (
+  &lt;Empty 
+    description=&quot;请创建或选择一个会话开始对话&quot; 
+    style={{ marginTop: 100 }}
+  /&gt;
+) : messages.length === 0 ? (
+  &lt;div style={{ textAlign: 'center', marginTop: 100 }}&gt;
+    &lt;Typography.Title level={4}&gt;开始与知识库对话吧！&lt;/Typography.Title&gt;
+    &lt;div style={{ marginTop: 24, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12 }}&gt;
+      &lt;Button 
+        onClick={() =&gt; setInputValue('公司有哪些请假制度？')}
+      &gt;
+        公司有哪些请假制度？
+      &lt;/Button&gt;
+      &lt;Button 
+        onClick={() =&gt; setInputValue('如何申请报销？')}
+      &gt;
+        如何申请报销？
+      &lt;/Button&gt;
+      &lt;Button 
+        onClick={() =&gt; setInputValue('新员工入职流程是什么？')}
+      &gt;
+        新员工入职流程是什么？
+      &lt;/Button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+) : (
+  // ... 消息列表 ...
+)}
+</code></pre>
+<hr />
+<h2 id="6-">6. 测试优化效果</h2>
+<p>现在我们来测试优化后的系统效果：</p>
+<ol>
+<li>
+<p><strong>重启所有服务</strong>：</p>
+<ul>
+<li>FastAPI 后端：<code>cd backend &amp;&amp; uvicorn main:app --reload --port 8000</code></li>
+<li>OpenClaw 网关：<code>cd openclaw &amp;&amp; pnpm run start</code></li>
+<li>React 前端：<code>cd frontend &amp;&amp; pnpm run dev</code></li>
+</ul>
+</li>
+<li>
+<p><strong>测试多轮对话</strong>：</p>
+<ul>
+<li>创建一个新会话</li>
+<li>先问：&ldquo;公司有哪些请假制度？&rdquo;</li>
+<li>然后问：&ldquo;病假工资怎么算？&rdquo;</li>
+<li>系统应该能够理解上下文，不需要你重复说明&quot;公司请假制度中的病假&quot;</li>
+</ul>
+</li>
+<li>
+<p><strong>测试复杂问题</strong>：</p>
+<ul>
+<li>上传一个包含多个主题的长文档</li>
+<li>问一个需要综合多个文档片段才能回答的问题</li>
+<li>系统应该能够检索到所有相关的片段，并给出完整准确的回答</li>
+</ul>
+</li>
+<li>
+<p><strong>测试多会话支持</strong>：</p>
+<ul>
+<li>创建多个会话，分别讨论不同的主题</li>
+<li>在不同会话之间切换，验证会话历史是否正确保存</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h2 id="7-">7. 项目结构更新</h2>
+<p>至此，我们的项目目录已经更新为：</p>
+<pre><code>enterprise-knowledge-base/
+├── .gitignore
+├── backend/
+│   ├── venv/
+│   ├── .env
+│   ├── main.py
+│   ├── requirements.txt
+│   ├── uploads/
+│   ├── utils/
+│   │   ├── text_splitter.py
+│   │   └── document_parser.py
+│   └── services/
+│       ├── vector_service.py
+│       ├── document_service.py
+│       └── chat_service.py
+├── openclaw/
+│   ├── node_modules/
+│   ├── package.json
+│   ├── .claw/
+│   │   └── config.yaml
+│   └── skills/
+│       ├── hello-world/
+│       ├── document-parser/
+│       └── rag-retrieval/
+└── frontend/
+    ├── node_modules/
+    ├── src/
+    │   ├── api/
+    │   │   └── index.ts
+    │   ├── components/
+    │   │   └── SessionList.tsx
+    │   ├── pages/
+    │   │   ├── DocumentPage.tsx
+    │   │   ├── ChatPage.tsx
+    │   │   ├── SettingsPage.tsx
+    │   │   └── ChatPage.css
+    │   ├── store/
+    │   │   └── index.ts
+    │   ├── utils/
+    │   ├── App.tsx
+    │   ├── App.css
+    │   └── main.tsx
+    ├── index.html
+    ├── package.json
+    └── tsconfig.json
+</code></pre>
+<hr />
+<h2 id="8-">8. 小结</h2>
+<p>本篇文章我们完成了以下事情：</p>
+<ul>
+<li>分析了基础RAG系统的局限性，制定了全面的优化方案</li>
+<li>集成了Cohere Rerank实现检索结果重排序，显著提升了回答准确性</li>
+<li>实现了多查询检索和父文档检索，解决了上下文缺失问题</li>
+<li>开发了对话历史压缩和上下文感知查询功能，优化了多轮对话体验</li>
+<li>实现了完整的多会话支持，包括会话创建、切换和删除</li>
+<li>优化了用户体验细节，包括可点击的引用来源和问题建议</li>
+</ul>
+
+  </div>
+
+  
+  <nav class="post-nav">
+    
+    <a href="/post/web3-quan-zhan-kai-fa-shi-zhansheng-chan-ji-you-hua-yu-bu-shu/" class="post-nav-card post-nav-card--prev">
+      
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">上一篇</span>
+        <span class="post-nav-card__title">Web3 全栈开发实战：生产级优化与部署</span>
+      </div>
+      <span class="post-nav-card__arrow">&larr;</span>
+    </a>
+    
+    
+    <a href="/post/web3-quan-zhan-kai-fa-shi-zhanduo-lian-zhi-chi-yu-zhi-neng-qian-bao-ji-cheng/" class="post-nav-card post-nav-card--next">
+      <div class="post-nav-card__body">
+        <span class="post-nav-card__label meta-text">下一篇</span>
+        <span class="post-nav-card__title">Web3 全栈开发实战：多链支持与智能钱包集成</span>
+      </div>
+      
+      <span class="post-nav-card__arrow">&rarr;</span>
+    </a>
+    
+  </nav>
+
+  
+  
+
+
+</article>
+
+  </main>
+
+  <footer class="site-footer">
+  <div class="footer-inner">
+
+    
+    
+    <nav class="footer-nav" aria-label="页脚导航">
+      
+      <a class="footer-nav__link" href="/">首页</a>
+      
+      <a class="footer-nav__link" href="/post">博客</a>
+      
+      <a class="footer-nav__link" href="/memos">闪念</a>
+      
+      <a class="footer-nav__link" href="/archives">归档</a>
+      
+      <a class="footer-nav__link" href="/tags">标签</a>
+      
+      <a class="footer-nav__link" href="/links">友链</a>
+      
+      <a class="footer-nav__link" href="/post/about">关于</a>
+      
+    </nav>
+    
+
+    
+    <div class="footer-social">
+      
+      <a class="footer-social__link" href="xx0-0xx" target="_blank" rel="noopener noreferrer"
+        aria-label="GitHub">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+        </svg>
+      </a>
+      
+      
+      
+      <a class="footer-social__link" href="/feed.xml" aria-label="RSS">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6.18 15.64a2.18 2.18 0 110 4.36 2.18 2.18 0 010-4.36zM4 4.44A15.56 15.56 0 0119.56 20h-2.83A12.73 12.73 0 004 7.27V4.44zm0 5.66a9.9 9.9 0 019.9 9.9h-2.83A7.07 7.07 0 004 12.93V10.1z"/>
+        </svg>
+      </a>
+    </div>
+
+    
+    <div class="footer-copyright">
+      <p>&copy; 2026 Stariverse. All rights reserved.</p>
+    </div>
+
+    
+    
+    <div class="footer-custom">
+      Stariverse
+    </div>
+    
+
+    
+    <div class="footer-powered">
+      <span>Powered by <a href="https://gridea.pro" target="_blank" rel="noopener noreferrer">Gridea Pro</a></span>
+    </div>
+
+  </div>
+</footer>
+
+  
+  <div class="search-overlay" id="searchOverlay" style="display:none;">
+  <div class="search-modal">
+    <div class="search-header">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="搜索文章..." autocomplete="off" />
+      <span class="search-kbd">&#8984;K</span>
+      <button class="search-close" id="searchClose" type="button" aria-label="关闭搜索">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<script src="/scripts/search.js"></script>
+  
+
+  
+
+  
+
+  
+
+<script>console.log("\n%c ✦ Gridea Pro v1.1.1 %c · Theme: flavor-theme v1.0.0 · https://gridea.pro %c\n","color:#fadfa3;background:#111111;padding:9px 14px;border-radius:4px 0 0 4px;font-weight:500;font-size:12px","color:#e05c00;background:#fff3ec;padding:9px 14px;border-radius:0 4px 4px 0;font-size:11px","")</script>
+</body>
+</html>
